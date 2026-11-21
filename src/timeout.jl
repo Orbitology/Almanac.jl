@@ -74,16 +74,17 @@ function _dpstr(x::Float64, sigdig::Integer)::String
 end
 
 """
-    _vsbstr!(buf, digits, expont, from, to, fill=' ', rnd=true) -> Bool
+    _vsbstr(buf, digits, expont, from, to, fill=' ', rnd=true) -> (buf, carry)
 
 Contract: `from <= to`; `digits`, `expont` come from `_dpstr_digits(x, 14)`. Appends to
 `buf` the characters of slots `from..to` of the virtual digit string of CSPICE
 `zzvsbstr` (negative slots are integer digits, slot 0 is the decimal point, positive
 slots are decimals), rounded at slot `to` if `rnd`, with `fill` in the integer slots to
-the left of the number, and returns whether the rounding carried out of slot `from`.
+the left of the number, and returns the buffer and whether the rounding carried out of
+slot `from`.
 """
-function _vsbstr!(
-        buf::Vector{UInt8}, digits::NTuple{14, Int}, expont::Int, from::Int, to::Int,
+function _vsbstr(
+        buf, digits::NTuple{14, Int}, expont::Int, from::Int, to::Int,
         fill::Char = ' ', rnd::Bool = true
     )
     index(slot) = slot < 0 ? expont + slot + 1 : expont + slot
@@ -93,10 +94,10 @@ function _vsbstr!(
         i = index(slot)
         incr = 0 <= i < 14 && digits[i + 1] >= 5
     end
-    base = length(buf) - from + 1
-    resize!(buf, length(buf) + to - from + 1)
+    base = _blen(buf) - from + 1
+    buf = _bresize(buf, _blen(buf) + to - from + 1)
     # Loop invariant: slots `slot+1..to` are written and `incr` is the carry into `slot`.
-    @inbounds for slot in to:-1:from
+    for slot in to:-1:from
         c = if slot == 0
             UInt8('.')
         else
@@ -116,54 +117,44 @@ function _vsbstr!(
                 UInt8('0')
             end
         end
-        buf[base + slot] = c
+        buf = _bset(buf, base + slot, c)
     end
-    return incr
-end
-
-"Append the byte `c` `n` times to `buf` (nothing for `n <= 0`)."
-@inline function _putn!(buf::Vector{UInt8}, c::UInt8, n::Int)
-    for _ in 1:n
-        push!(buf, c)
-    end
-    return buf
+    return buf, incr
 end
 
 """
-    _dpstrf!(buf, x, sigdig) -> buf
+    _dpstrf(buf, x, sigdig) -> buf
 
 Contract: appends to `buf` the number `x` in fixed-point form with `clamp(sigdig, 1,
 14)` significant digits, as CSPICE `dpstrf(x, sigdig, 'F')` writes it: a blank or `-`
 for the sign, then the digits; the rounding is the two-step rounding of CSPICE (to 14
 digits, then to the requested digit), so a tie rounds away from zero.
 """
-function _dpstrf!(buf::Vector{UInt8}, x::Float64, sigdig::Integer)
+function _dpstrf(buf, x::Float64, sigdig::Integer)
     maxdig = Int(clamp(sigdig, 1, 14))
-    push!(buf, x < 0.0 ? UInt8('-') : UInt8(' '))
+    buf = _bpush(buf, x < 0.0 ? UInt8('-') : UInt8(' '))
     if x == 0.0
-        push!(buf, UInt8('0'), UInt8('.'))
-        return _putn!(buf, UInt8('0'), maxdig)
+        buf = _bpush(_bpush(buf, UInt8('0')), UInt8('.'))
+        return _putn(buf, UInt8('0'), maxdig)
     end
     digits, expont = _dpstr_digits(abs(x))
     first = expont >= 0 ? -expont - 1 : -expont
     last = first + maxdig - 1
     first < 0 && last >= 0 && (last += 1)
     first = min(-1, first)
-    s0 = length(buf)                     # the digits start at `s0 + 1`
-    if _vsbstr!(buf, digits, expont, first, last)
-        resize!(buf, s0)
+    s0 = _blen(buf)                      # the digits start at `s0 + 1`
+    buf, carry = _vsbstr(buf, digits, expont, first, last)
+    if carry
+        buf = _bresize(buf, s0)
         first -= 1
-        _vsbstr!(buf, digits, expont, first, last)
-        last > 0 && pop!(buf)
+        buf, _ = _vsbstr(buf, digits, expont, first, last)
+        last > 0 && (buf = _bresize(buf, _blen(buf) - 1))
     end
     if last < 0
-        _putn!(buf, UInt8('0'), -1 - last)
-        push!(buf, UInt8('.'))
+        buf = _bpush(_putn(buf, UInt8('0'), -1 - last), UInt8('.'))
     end
     # The blanks of the fill go: the digits follow the sign.
-    k = something(findnext(!=(UInt8(' ')), buf, s0 + 1), length(buf) + 1)
-    k > s0 + 1 && deleteat!(buf, (s0 + 1):(k - 1))
-    return buf
+    return _bdelete(buf, s0 + 1, _skip_blanks(buf, s0 + 1) - 1)
 end
 
 """
@@ -180,7 +171,7 @@ to the first digit, the exponent form of `dpstr` when the integer part does not 
 function _dpfmt!(buf::Vector{UInt8}, x::Float64, p::AbstractVector{UInt8})
     lastch = length(p)
     lastch == 0 && return buf
-    stars() = _putn!(buf, UInt8('*'), lastch)
+    stars() = _putn(buf, UInt8('*'), lastch)
     sign = x > 0.0 ? UInt8('+') : (x < 0.0 ? UInt8('-') : UInt8(' '))
     sprsiz = x < 0.0 ? 1 : 0
     if p[1] == UInt8('+')
@@ -212,7 +203,7 @@ function _dpfmt!(buf::Vector{UInt8}, x::Float64, p::AbstractVector{UInt8})
     ((intlen == 0 && declen == 0) || -intlen > declen) && return stars()
     s0 = length(buf)
     sgnlen == 1 && push!(buf, sign)
-    if _vsbstr!(buf, digits, expont, -intlen, declen, fill, true)
+    if _vsbstr(buf, digits, expont, -intlen, declen, fill, true)[2]
         resize!(buf, s0)
         return _dpfmt_exp!(buf, x, sign, sgnlen, lastch, expont)
     end
@@ -231,7 +222,7 @@ function _dpfmt!(buf::Vector{UInt8}, x::Float64, p::AbstractVector{UInt8})
             buf[s0 + 1] = UInt8(' ')
         end
     end
-    return _putn!(buf, UInt8(' '), lastch - (length(buf) - s0))
+    return _putn(buf, UInt8(' '), lastch - (length(buf) - s0))
 end
 
 "The exponent form of `_dpfmt!`, right justified in `lastch` characters (or `*`s); the rare path, which builds strings."
@@ -239,14 +230,12 @@ end
         buf::Vector{UInt8}, x::Float64, sign::UInt8, sgnlen::Int, lastch::Int, expont::Int
     )
     sigdig = lastch - sgnlen - (min(1, div(expont, 1000)) + 4 + min(1, div(expont, 100))) - 1
-    sigdig < 1 && return _putn!(buf, UInt8('*'), lastch)
+    sigdig < 1 && return _putn(buf, UInt8('*'), lastch)
     e = _dpstr(x, sigdig)
     e = lstrip(string(Char(sign), SubString(e, 2)), ' ')
-    return _puts!(buf, ncodeunits(e) >= lastch ? first(e, lastch) : lpad(e, lastch))
+    return _puts(buf, ncodeunits(e) >= lastch ? first(e, lastch) : lpad(e, lastch))
 end
 
-"Append the ASCII string `s` to `buf`."
-@inline _puts!(buf::Vector{UInt8}, s::AbstractString) = append!(buf, codeunits(s))
 
 # ---------------------------------------------------------------------------------
 # TIMOUT
@@ -841,20 +830,6 @@ end
 # ET2UTC, ETCAL
 # ---------------------------------------------------------------------------------
 
-"Append the decimal digits of `n >= 0` to `buf`, zero padded on the left to `width` (`lpad(string(n), width, '0')`)."
-function _putint!(buf::Vector{UInt8}, n::Integer, width::Int = 1)
-    nd = ndigits(n)
-    _putn!(buf, UInt8('0'), width - nd)
-    base = length(buf)
-    resize!(buf, base + nd)
-    # Loop invariant: the `k` last digits of `n` are written.
-    @inbounds for k in 0:(nd - 1)
-        n, d = divrem(n, 10)
-        buf[base + nd - k] = UInt8('0') + UInt8(d)
-    end
-    return buf
-end
-
 "The format of `et2utc`: the first 4 characters without trailing blanks, any case; 0 if it is not one of them."
 function _et2utc_format(format::AbstractString)
     cu = codeunits(format)
@@ -871,10 +846,12 @@ function _et2utc_format(format::AbstractString)
 end
 
 """
-    et2utc([ctx,] et, format, prec) -> String
+    et2utc([ctx,] et, format, prec) -> FixedString
 
 Return the epoch `et` (seconds past J2000 TDB) as a UTC string, as
 [`et2utc_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/et2utc_c.html).
+The string is a [`FixedString`](@ref Almanac.FixedString), stored inline, so that the
+call allocates nothing; `String(s)` converts it.
 
 A leap-second kernel must be loaded. `format` selects the form; letter case is
 ignored:
@@ -904,7 +881,7 @@ et2utc(0.0, "ISOC", 3)      # UTC at the epoch J2000 TDB
 
 See also [`timout`](@ref), [`str2et`](@ref).
 """
-function et2utc(ks::KernelSet, et::Real, format::AbstractString, prec::Integer)::String
+function et2utc(ks::KernelSet, et::Real, format::AbstractString, prec::Integer)::FixedString
     fmt = _et2utc_format(format)
     fmt == 0 && throw(
         SpiceError(
@@ -915,11 +892,10 @@ function et2utc(ks::KernelSet, et::Real, format::AbstractString, prec::Integer):
     l = _lsk(ks, :missingtimeinfo)
     p = Int(clamp(prec, 0, 14))
     x = primal(et)
-    buf = sizehint!(UInt8[], 40)
+    buf = FixedString()
     if fmt == 3                                            # J
         jd = _ttrans(l, _TT_TDB, _TT_JDUTC, _tvec(x))[1]
-        push!(buf, UInt8('J'), UInt8('D'))
-        return String(_dpstrf!(buf, jd, p + 7))
+        return _dpstrf(_puts(buf, "JD"), jd, p + 7)
     end
     tai = _unitim(l, x, _US_TDB, _US_TAI)
     whole = floor(tai)
@@ -940,10 +916,10 @@ function et2utc(ks::KernelSet, et::Real, format::AbstractString, prec::Integer):
         hh, mi, sc = _nint(tv[3]), _nint(tv[4]), _nint(tv[5])
     end
     if year >= 1000
-        _putint!(buf, year)
+        buf = _putint(buf, year)
     elseif year > 0
-        _putint!(buf, year)
-        calendar_style && _puts!(buf, " A.D.")
+        buf = _putint(buf, year)
+        calendar_style && (buf = _puts(buf, " A.D."))
     else
         calendar_style || throw(
             SpiceError(
@@ -951,54 +927,59 @@ function et2utc(ks::KernelSet, et::Real, format::AbstractString, prec::Integer):
                 "the year $(1 - year) B.C. cannot be written in an ISO format"
             )
         )
-        _putint!(buf, 1 - year)
-        _puts!(buf, " B.C.")
+        buf = _putint(buf, 1 - year)
+        buf = _puts(buf, " B.C.")
     end
     if fmt == 1
-        push!(buf, UInt8(' '))
-        _puts!(buf, _MONTH_ABBR[month])
-        push!(buf, UInt8(' '))
-        _putint!(buf, day, 2)
-        push!(buf, UInt8(' '))
+        buf = _bpush(buf, UInt8(' '))
+        buf = _puts(buf, _MONTH_ABBR[month])
+        buf = _bpush(buf, UInt8(' '))
+        buf = _putint(buf, day, 2)
+        buf = _bpush(buf, UInt8(' '))
     elseif fmt == 4
-        push!(buf, UInt8('-'))
-        _putint!(buf, month, 2)
-        push!(buf, UInt8('-'))
-        _putint!(buf, day, 2)
-        push!(buf, UInt8('T'))
+        buf = _bpush(buf, UInt8('-'))
+        buf = _putint(buf, month, 2)
+        buf = _bpush(buf, UInt8('-'))
+        buf = _putint(buf, day, 2)
+        buf = _bpush(buf, UInt8('T'))
     elseif fmt == 2
-        push!(buf, year < 1000 ? UInt8(' ') : UInt8('-'))
-        _putint!(buf, day, 3)
-        _puts!(buf, " // ")
+        buf = _bpush(buf, year < 1000 ? UInt8(' ') : UInt8('-'))
+        buf = _putint(buf, day, 3)
+        buf = _puts(buf, " // ")
     else
-        push!(buf, UInt8('-'))
-        _putint!(buf, day, 3)
-        push!(buf, UInt8('T'))
+        buf = _bpush(buf, UInt8('-'))
+        buf = _putint(buf, day, 3)
+        buf = _bpush(buf, UInt8('T'))
     end
-    _putint!(buf, hh, 2)
-    push!(buf, UInt8(':'))
-    _putint!(buf, mi, 2)
-    push!(buf, UInt8(':'))
-    _putint!(buf, sc, 2)
+    buf = _putint(buf, hh, 2)
+    buf = _bpush(buf, UInt8(':'))
+    buf = _putint(buf, mi, 2)
+    buf = _bpush(buf, UInt8(':'))
+    buf = _putint(buf, sc, 2)
     if p > 0
         # CSPICE writes `1 + fraction` with `dpstrf` and keeps the decimal point and the
         # `p` digits after it, so at most 13 places exist.
-        n0 = length(buf)
-        _dpstrf!(buf, frac / scale + 1.0, p + 1)
-        dot = n0 + something(findfirst(==(UInt8('.')), @view buf[(n0 + 1):end]), 1)
-        keep = min(p + 1, length(buf) - dot + 1)
-        copyto!(buf, n0 + 1, buf, dot, keep)
-        resize!(buf, n0 + keep)
+        n0 = _blen(buf)
+        buf = _dpstrf(buf, frac / scale + 1.0, p + 1)
+        dot = n0 + 1
+        while dot <= _blen(buf) && _bget(buf, dot) != UInt8('.')
+            dot += 1
+        end
+        dot > _blen(buf) && (dot = n0 + 1)
+        keep = min(p + 1, _blen(buf) - dot + 1)
+        buf = _bresize(_bmove(buf, n0 + 1, dot, keep), n0 + keep)
     end
-    return String(buf)
+    return buf
 end
 
 """
-    etcal([ctx,] et) -> String
+    etcal([ctx,] et) -> FixedString
 
 Return the calendar string of `et` (seconds past J2000 TDB) on the formal calendar, on
 which every day has 86400 seconds, as
 [`etcal_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/etcal_c.html).
+The string is a [`FixedString`](@ref Almanac.FixedString), as the one of
+[`et2utc`](@ref), so the call allocates nothing.
 
 The string has the form `1986 APR 12 16:31:09.814`. It is a TDB date without leap
 seconds, and the call needs no kernel; `ctx` is
@@ -1018,7 +999,7 @@ julia> etcal(-1.0e11)
 "1170 B.C. FEB 16 02:13:20.000"
 ```
 """
-function etcal(et::Real)::String
+function etcal(et::Real)::FixedString
     mynum = primal(et) + _HALFD
     q = trunc(mynum / _SPD)
     secs = mynum - q * _SPD
@@ -1058,41 +1039,28 @@ function etcal(et::Real)::String
     secs = Float64(tsecs) / 1.0e3
     secs + 5.0e-4 < 60.0 && (secs += 5.0e-4)
     secs = trunc(Int, secs * 1.0e3) / 1.0e3
-    buf = sizehint!(UInt8[], 40)
+    buf = FixedString()
     if !isempty(messge)
-        _puts!(buf, messge)
-        push!(buf, UInt8(' '))
+        buf = _bpush(_puts(buf, messge), UInt8(' '))
     end
-    year < 0 && push!(buf, UInt8('-'))
-    _putint!(buf, abs(year))
+    year < 0 && (buf = _bpush(buf, UInt8('-')))
+    buf = _putint(buf, abs(year))
     if !isempty(era)
-        push!(buf, UInt8(' '))
-        _puts!(buf, era)
+        buf = _puts(_bpush(buf, UInt8(' ')), era)
     end
-    push!(buf, UInt8(' '))
-    _puts!(buf, _MONTH_ABBR[month])
-    push!(buf, UInt8(' '))
-    _putint!(buf, day, 2)
-    push!(buf, UInt8(' '))
-    _putint!(buf, hours, 2)
-    push!(buf, UInt8(':'))
-    _putint!(buf, mins, 2)
-    push!(buf, UInt8(':'))
+    buf = _bpush(_puts(_bpush(buf, UInt8(' ')), _MONTH_ABBR[month]), UInt8(' '))
+    buf = _bpush(_putint(buf, day, 2), UInt8(' '))
+    buf = _bpush(_putint(buf, hours, 2), UInt8(':'))
+    buf = _bpush(_putint(buf, mins, 2), UInt8(':'))
     # The seconds: `dpstrf` with 6 digits, without its sign blank, a 0 before a leading
     # decimal point, cut to 6 characters.
-    n0 = length(buf)
-    _dpstrf!(buf, secs, 6)
-    k = n0 + 1
-    while k <= length(buf) && buf[k] == UInt8(' ')
-        k += 1
-    end
-    n = length(buf) - k + 1
-    copyto!(buf, n0 + 1, buf, k, n)
-    resize!(buf, n0 + n)
-    if n >= 2 && buf[n0 + 2] == UInt8('.')
-        insert!(buf, n0 + 1, UInt8('0'))
+    n0 = _blen(buf)
+    buf = _dpstrf(buf, secs, 6)
+    buf = _bdelete(buf, n0 + 1, _skip_blanks(buf, n0 + 1) - 1)
+    n = _blen(buf) - n0
+    if n >= 2 && _bget(buf, n0 + 2) == UInt8('.')
+        buf = _binsert(buf, n0 + 1, UInt8('0'))
         n += 1
     end
-    resize!(buf, n0 + min(n, 6))
-    return String(buf)
+    return _bresize(buf, n0 + min(n, 6))
 end

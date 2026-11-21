@@ -876,17 +876,37 @@ group("9. time subsystem against CSPICE", Kernels.LSK) do
     end
 
     @apart @testset "allocations of the conversions to and from strings" begin
+        # `et2utc` and `etcal` return a `FixedString` and allocate nothing, in every format
+        # and at the extremes of their range.
+        zs = (
+            () -> et2utc(ks, 8.0e8, "ISOC", 3), () -> et2utc(ks, 8.0e8, "C", 14),
+            () -> et2utc(ks, -3.0e13, "D", 9), () -> et2utc(ks, 8.0e8, "J", 7),
+            () -> et2utc(ks, 8.0e8, "isod", 0), () -> etcal(8.0e8), () -> etcal(-1.0e300),
+        )
+        foreach(f -> f(), zs)
+        @test [@allocations(f()) for f in zs] == zeros(Int, length(zs))
         # Upper bounds on the count, a little above the count measured on Julia 1.13: the
         # returned String and the work buffers. Before the byte buffers, `str2et` made 81
         # allocations and `timout` more than 100.
         fs = (
-            () -> et2utc(ks, 8.0e8, "ISOC", 3), () -> et2utc(ks, 8.0e8, "J", 7), () -> etcal(8.0e8),
             () -> timout(ks, 8.0e8, "YYYY-MM-DDTHR:MN:SC.### ::TDB"),
             () -> str2et(ks, "2025 MAR 01 12:00:00.000"),
         )
         foreach(f -> f(), fs)
-        n = [@allocations(f()) for f in fs]
-        @test all(n .<= [4, 4, 4, 30, 40])
+        @test all([@allocations(f()) for f in fs] .<= [30, 40])
+    end
+
+    @apart @testset "FixedString: a String in all but its storage" begin
+        s = et2utc(ks, 8.0e8, "ISOC", 3)
+        @test s isa Almanac.FixedString && isbitstype(typeof(s))
+        @test s == "2025-05-08T18:12:10.815" == String(s) && String(s) isa String
+        @test (length(s), sizeof(s), s[1:4], s[end], "<$s>") == (23, 23, "2025", '5', "<2025-05-08T18:12:10.815>")
+        @test repr(s) == repr(String(s)) && hash(s) == hash(String(s))
+        @test collect(s) == collect(String(s)) && occursin(r"T18:12", s) && startswith(s, "2025-")
+        @test str2et(ctx, s) == str2et(ctx, String(s))
+        @test Almanac.FixedString("") == "" && Almanac.FixedString("x"^64) == "x"^64
+        @test throws_kind(() -> Almanac.FixedString("x"^65), :buffertoosmall)
+        @test throws_kind(() -> Almanac.FixedString("é"), :nonprintablechars)
     end
 
     @apart @testset "timout, pictures of the header and random pictures" begin

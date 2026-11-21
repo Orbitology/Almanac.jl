@@ -96,6 +96,7 @@ include("textkernel.jl")    # parse_text_kernel, kernel_arch, metakernel_files
 include("jsonkernel.jl")    # parse_json_kernel, is_json_kernel
 include("names.jl")         # body names and codes, built-in and pool-defined
 include("frames.jl")        # frame definitions, built-in and pool-defined
+include("fixedstring.jl")   # FixedString, the byte writers of the formats
 include("time.jl")          # leap seconds, deltet, unitim, ttrans, calendars, constants
 include("timeparse.jl")     # tpartv, str2et, utc2et, tparse, tpictr, timdef rules
 include("timeout.jl")       # number formats, timout, et2utc, etcal
