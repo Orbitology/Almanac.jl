@@ -768,6 +768,7 @@ dvnorm	function	d	state	d	6	in
 dvpool	entry		name	c		in
 dvsep	function	d	s1	d	6	in
 dvsep	function	d	s2	d	6	in
+dwpool	entry		agent	c		in
 edlimb	subroutine		a	d		in
 edlimb	subroutine		b	d		in
 edlimb	subroutine		c	d		in

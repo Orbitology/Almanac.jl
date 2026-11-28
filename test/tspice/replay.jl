@@ -1144,7 +1144,7 @@ end
 const STATEFUL = Set(
     [
         "furnsh", "unload", "kclear", "ldpool", "clpool", "pdpool", "pcpool",
-        "pipool", "lmpool", "dvpool", "timdef", "spklef", "cklpf", "pcklof", "zzdsklsf", "gfstol",
+        "pipool", "lmpool", "dvpool", "dwpool", "timdef", "spklef", "cklpf", "pcklof", "zzdsklsf", "gfstol",
     ]
 )
 
@@ -1444,6 +1444,13 @@ function cspice_swpool(agent, nnames, names)
 end
 CSPICE_EXTRA["swpool"] = cspice_swpool
 push!(STATEFUL, "swpool")
+# DWPOOL has no C function in CSPICE N0067 and no SPICE.jl wrapper
+function cspice_dwpool_call(agent)
+    ccall((:dwpool_, SPICE.libcspice), Cint, (Cstring, Cint), agent, sizeof(agent))
+    SPICE.handleerror()
+    return nothing
+end
+CSPICE_EXTRA["dwpool"] = cspice_dwpool_call
 # the azimuth and elevation conversions of SPICE.jl take azccw and elplsz as keywords
 cspice_azlrec(range, az, el, azccw, elplsz) = SPICE.azlrec(range, az, el; azccw, elplsz)
 cspice_drdazl(range, az, el, azccw, elplsz) = SPICE.drdazl(range, az, el; azccw, elplsz)
@@ -1475,7 +1482,7 @@ const SIZE_ERRORS = Set(["SPICE(BADARRAYSIZE)", "SPICE(ARRAYTOOSMALL)", "SPICE(S
 """
 Routines whose answer CSPICE cannot give for the call of the test: CVPOOL reports the
 updates of watchers, which depend on the calls of CVPOOL that matched, which CSPICE does
-not see, and on DWPOOL, which the recording does not log.
+not see.
 """
 const NO_ORACLE_STATE = Set(["cvpool"])
 

@@ -51,7 +51,7 @@ clpool	1039	0	0	0	0	0	0	0
 cnmfrm	4969	0	0	0	0	0	0	0
 conics	35615	0	0	0	0	0	0	0
 convrt	1376	0	0	0	0	0	0	0
-cvpool	2515	0	0	0	2	0	0	0
+cvpool	2516	0	0	0	1	0	0	0
 cyllat	102	0	0	0	0	0	0	0
 cylrec	133	0	0	0	0	0	0	0
 cylsph	101	0	0	0	0	0	0	0
@@ -152,6 +152,7 @@ dvhat	13701	17822	0	0	0	0	0	0
 dvnorm	18020	0	0	0	0	0	0	0
 dvpool	3835	0	0	0	0	0	0	0
 dvsep	7718	0	0	0	0	0	0	0
+dwpool	1802	0	0	0	0	3	0	0
 edlimb	2103	6	0	0	0	0	0	0
 ednmpt	228	0	0	0	0	0	0	0
 edpnt	4532	0	0	0	0	0	0	0

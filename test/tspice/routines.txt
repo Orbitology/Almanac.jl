@@ -162,6 +162,7 @@ dvhat
 dvnorm
 dvpool
 dvsep
+dwpool
 edlimb
 ednmpt
 edpnt
