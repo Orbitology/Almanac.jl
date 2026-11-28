@@ -1421,9 +1421,10 @@ function cspice_pltvol(vrtces, plates)
 end
 CSPICE_EXTRA["pltar"] = cspice_pltar
 CSPICE_EXTRA["pltvol"] = cspice_pltvol
-# swpool has a count of names; the watchers it sets decide what cvpool returns, so it
-# is mirrored into CSPICE as the loads are. Its agents are kept, so that cspice_reset
-# deletes their watchers.
+# swpool has a count of names. It is mirrored into CSPICE as the loads are, so that the
+# watchers of a family fill the tables of CSPICE as they fill those of SPICELIB, and a
+# call that SPICELIB refuses for a full table is refused by CSPICE too. Its agents are
+# kept, so that cspice_reset deletes their watchers.
 const ORACLE_AGENTS = Set{String}()
 function cspice_swpool(agent, nnames, names)
     push!(ORACLE_AGENTS, String(agent))
@@ -1452,14 +1453,63 @@ push!(STATEFUL, "boddef")
 "The answer of `cspice_call` for a call that CSPICE is not asked (`nothing` is the result of a wrapper that found nothing)."
 struct NoOracle end
 
+"""
+SPICELIB errors that the size of an array or a string argument causes. The replay does
+not give CSPICE these sizes (SPICE.jl takes none, or sizes of its own), so CSPICE cannot
+make the error, and it is not asked.
+"""
+const SIZE_ERRORS = Set(["SPICE(BADARRAYSIZE)", "SPICE(ARRAYTOOSMALL)", "SPICE(SCLKTRUNCATED)"])
+
+"""
+Routines whose answer CSPICE cannot give for the call of the test: CVPOOL reports the
+updates of watchers, which depend on the calls of CVPOOL that matched, which CSPICE does
+not see, and on DWPOOL, which the recording does not log.
+"""
+const NO_ORACLE_STATE = Set(["cvpool"])
+
+"""
+The routines that SPICE.jl deprecates (`@deprecate vnorm(v1) LinearAlgebra.norm(v1)`,
+`@deprecate xpose transpose`, ...): its function of such a name is Julia code or a
+function of another name, not the CSPICE routine.
+"""
+const SPICEJL_DEPRECATED = let names = Set{String}()
+    for f in readdir(joinpath(pkgdir(SPICE), "src"); join = true)
+        endswith(f, ".jl") || continue
+        for m in eachmatch(r"^@deprecate\s+(\w+)"m, read(f, String))
+            push!(names, m[1])
+        end
+    end
+    names
+end
+
+"The last call that CSPICE was asked, and its answer."
+const ORACLE_LAST = Ref{Any}(nothing)
+
+"""
+    cspice_call(c) -> result, Exception or NoOracle()
+
+The answer of CSPICE to the call `c`. CSPICE is asked once for a call: a routine that
+changes the state of CSPICE (a load, a watcher, the update that CVPOOL takes) would
+give a second answer of its own.
+"""
 function cspice_call(c::Call)
+    last = ORACLE_LAST[]
+    last !== nothing && last[1] === c && return last[2]
+    r = _cspice_call(c)
+    ORACLE_LAST[] = (c, r)
+    return r
+end
+
+function _cspice_call(c::Call)
     name = lowercase(c.name)
     occursin(NO_ORACLE, name) && return NoOracle()
-    (name in GF_SEARCHES || name in CELL_NAMES) && return NoOracle()
+    (name in GF_SEARCHES || name in CELL_NAMES || name in NO_ORACLE_STATE) && return NoOracle()
+    c.failed && c.short in SIZE_ERRORS && return NoOracle()
     any(a -> handle_value(a) !== nothing, c.inputs) && return NoOracle()
     name in ("spklef", "cklpf", "pcklof", "zzdsklsf") && (name = "furnsh")
     f = haskey(CSPICE_EXTRA, name) ? CSPICE_EXTRA[name] :
-        isdefined(SPICE, Symbol(name)) ? getfield(SPICE, Symbol(name)) : nothing
+        isdefined(SPICE, Symbol(name)) && !(name in SPICEJL_DEPRECATED) ?
+        getfield(SPICE, Symbol(name)) : nothing
     f === nothing && return NoOracle()
     drop = get(DROP, lowercase(c.name), String[])
     args = Any[oracle_arg(a) for a in c.inputs if !(a.name in drop)]
@@ -1511,6 +1561,7 @@ Reset the oracle before a family: its error status, the kernel pool, the watcher
 or cannot watch one more variable.
 """
 function cspice_reset()
+    ORACLE_LAST[] = nothing
     ccall((:reset_c, SPICE.libcspice), Cvoid, ())
     # KCLEAR keeps the watchers and the names of BODDEF. The watchers of the families
     # fill the list of watched variables, and CSPICE's own routines then fail

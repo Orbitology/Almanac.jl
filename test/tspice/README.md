@@ -81,7 +81,12 @@ library of the machine that replays either. To load it, `run.jl` writes an overr
 the artifact of CSPICE_jll into `oracle_depot` of the recording directory and adds that
 depot at the end of the depot path of the replay processes, and `replay.jl` refuses to
 classify with another library. The oracle is reset before each family, together with the
-watchers of its kernel pool and the body names that `boddef` defined.
+watchers of its kernel pool and the body names that `boddef` defined. CSPICE is asked
+once for each call, and not at all where its answer would not be that of CSPICE to the
+call of the test: for a routine that SPICE.jl replaces with Julia code (`vnorm`,
+`vzerog`, ...), for an error that SPICELIB makes because of the size of an argument
+(`room`, `maxn`, the length of an output string), which the replay does not give
+CSPICE, and for CVPOOL, whose answer depends on calls that CSPICE does not see.
 
 The replay gives Almanac.jl the same functions. Julia's own `sin`, `cos`, `exp`, ... differ
 from the correctly rounded results in the last bit for some arguments, and an output of
