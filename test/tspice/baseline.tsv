@@ -1,24 +1,25 @@
 routine	value	error	adapter	class	note
 bodc2n	0	1	0	documented	KERVARTOOBIG past 14983 body names in the pool: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 boddef	0	1	0	documented	TOOMANYPAIRS past 161 pairs: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
+bodvrd	0	1	0	documented	ARRAYTOOSMALL for a maxn below the number of values: Almanac takes no maxn and returns every value (conventions.md, memory arguments)
 ckopn	0	1	0	documented	DAFFTFULL past 5000 open files: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
+cvpool	2	0	0	gap	the update after DWPOOL, which Almanac does not have and the recording does not log, and the update of ZZBODTRN, the agent that the body-name lookup of SPICELIB registers and Almanac does not; CSPICE is not asked (replay.jl, NO_ORACLE_STATE)
 dafbna	0	1	0	documented	STFULL past 20 arrays written at once: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 dasopw	0	1	0	cspice	:emptystring for an empty name, as the CSPICE wrappers
 dlaopn	0	1	0	cspice	:emptystring for an empty name, as the CSPICE wrappers
 dskxsi	1	0	0	documented	CSPICE keeps the frame ID of a call that failed with INVALIDFRAME, and its next call takes the ray in that frame (cspice_defects.md); Almanac uses the frame the call names
 dskxv	1	0	0	documented	the frame of an earlier failed call, a CSPICE defect (cspice_defects.md)
 furnsh	0	4	0	documented	FILENAMETOOLONG and PATHTOOLONG past 255 characters: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits); Almanac then finds no such file
-gcpool	0	1	0	documented	:typemismatch for a variable of the other type (gcpool)
+gcpool	0	2	0	documented	:typemismatch for a variable of the other type (gcpool); room 0, which Almanac does not take (conventions.md, memory arguments)
 gdpool	0	2	0	documented	:typemismatch for a variable of the other type (gdpool); room 0, which Almanac does not take (conventions.md, memory arguments)
-gipool	0	1	0	documented	:typemismatch for a variable of the other type (gipool)
+gipool	0	2	0	documented	:typemismatch for a variable of the other type (gipool); room 0, which Almanac does not take (conventions.md, memory arguments)
 pcklof	0	2	0	gap	Almanac has no pcklof; the replay loads with furnsh (NOSUCHFILE); FTFULL past 5000 open files is a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 pckopn	0	1	0	documented	DAFFTFULL past 5000 open files: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
-pxform	0	1	0	documented	errors: kind names
-scdecd	0	1	0	documented	TOOMANYCOEFFS past 100000 coefficients of an SCLK kernel: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
+scdecd	0	2	0	documented	TOOMANYCOEFFS past 100000 coefficients of an SCLK kernel: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits); SCLKTRUNCATED for an output string that is too short: Almanac returns a String of any length (conventions.md, strings)
 sce2c	0	1	0	documented	TOOMANYPARTITIONS past 9999 partitions of an SCLK kernel: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits); Almanac then finds the epoch out of range
 spkopn	0	1	0	documented	DAFFTFULL past 5000 open files: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 swpool	0	4	0	documented	KERVARSETOVERFLOW, TOOMANYWATCHES, AGENTLISTOVERFLOW past the sizes of the watcher tables: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 sxform	0	1	0	documented	errors: TOOMANYBASEFRAMES past 15000 base frames of switch frames, a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
-tisbod	134	0	0	documented	CSPICE's rate of a cubic pole term, and the degree check (numerics.md)
+tisbod	134	0	0	documented	CSPICE divides the rate of the cubic term of a phase angle by the square of the seconds per century, so its rate block misses that term (cspice_defects.md); Almanac gives the exact derivative
 tkvrsn	400	0	0	documented	the version string names Almanac (tkvrsn docstring)
 zzdsklsf	0	1	0	documented	FTFULL past 5000 open files: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)

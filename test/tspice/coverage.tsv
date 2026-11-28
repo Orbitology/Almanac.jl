@@ -12,7 +12,7 @@ bodfnd	2904	0	0	0	0	0	0	0
 bodn2c	31792	0	0	0	0	0	0	0
 bods2c	1407	0	0	0	0	0	0	0
 bodvcd	1065	0	0	0	0	0	0	0
-bodvrd	1474	1	0	0	0	0	0	0
+bodvrd	1474	0	0	0	0	1	0	0
 ccifrm	254	0	0	0	0	0	0	0
 cgv2el	12372	0	0	0	0	0	0	0
 chbder	2564	0	0	0	0	0	0	0
@@ -51,7 +51,7 @@ clpool	1039	0	0	0	0	0	0	0
 cnmfrm	4969	0	0	0	0	0	0	0
 conics	35615	0	0	0	0	0	0	0
 convrt	1376	0	0	0	0	0	0	0
-cvpool	2515	1	0	1	0	0	0	0
+cvpool	2515	0	0	0	2	0	0	0
 cyllat	102	0	0	0	0	0	0	0
 cylrec	133	0	0	0	0	0	0	0
 cylsph	101	0	0	0	0	0	0	0
@@ -208,7 +208,7 @@ frame	6812	0	0	0	0	0	0	0
 frinfo	9988	0	0	0	0	0	0	0
 frmnam	7105	0	0	0	0	0	0	0
 furnsh	21504	0	0	0	0	4	0	0
-gcpool	182	1	0	0	0	1	0	0
+gcpool	182	0	0	0	0	2	0	0
 gdpool	1351	0	0	0	0	2	0	0
 georec	39915	0	0	0	0	0	0	0
 getelm	82	0	0	0	0	0	0	0
@@ -232,7 +232,7 @@ gfsstp	0	0	0	0	0	0	0	1201
 gfstol	26	0	0	0	0	0	0	0
 gfsubc	35	0	0	0	0	0	0	0
 gftfov	69	0	0	0	0	0	0	1
-gipool	5	1	0	0	0	1	0	0
+gipool	5	0	0	0	0	2	0	0
 gnpool	105	0	0	0	0	0	0	0
 gr2jul	774	0	0	0	0	0	0	0
 halfpi	62	0	0	0	0	0	0	0
@@ -318,7 +318,7 @@ pltvol	75	0	0	0	0	0	0	0
 polyds	9	0	0	0	0	0	0	0
 prop2b	22751	0	0	0	0	0	0	0
 psv2pl	8048	0	0	0	0	0	0	0
-pxform	40314	0	0	0	0	1	0	0
+pxform	40315	0	0	0	0	0	0	0
 pxfrm2	23296	0	0	0	0	0	0	0
 q2m	29319	0	0	0	0	0	0	0
 qderiv	10657	0	0	0	0	0	0	0
@@ -340,7 +340,7 @@ rotvec	21	0	0	0	0	0	0	0
 rpd	53	0	0	0	0	0	0	0
 rquad	4	0	0	0	0	0	0	0
 saelgv	7946	0	0	0	0	0	0	0
-scdecd	64047	1	0	0	0	1	0	1
+scdecd	64047	0	0	0	0	2	0	1
 sce2c	49026	0	0	0	0	1	0	1
 sce2s	30005	0	0	0	0	0	0	1
 sce2t	35063	0	0	0	0	0	0	1
@@ -485,7 +485,7 @@ vtmv	1	0	0	0	0	0	0	0
 vtmvg	1	0	0	0	0	0	0	0
 vupack	1	0	0	0	0	0	0	0
 vzero	7354	0	0	0	0	0	0	0
-vzerog	14	2	0	0	0	0	0	1
+vzerog	16	0	0	0	0	0	0	1
 wncard	659	0	0	0	0	0	0	0
 wndifd	9	0	0	0	0	0	0	0
 wnexpd	17	0	0	0	0	0	0	0
