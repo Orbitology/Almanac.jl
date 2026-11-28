@@ -1069,6 +1069,35 @@ group(
         @test throws_kind(() -> ckgp(nanctx, -77001, 5.0, 0.0, 1), :baddaf)
     end
 
+    # Regression: a type 5 quaternion of subtype 3 that interpolates to zero threw
+    # `:dividebyzero`. `cke05_` normalizes it with `vhatg_`, which gives the zero
+    # quaternion, and `q2m_` gives the identity matrix; the other subtypes divide by the
+    # norm. The scalar parts 9, 1, 1, 9 at the ticks 0, 1, 2, 3 lie on 4(t - 1.5)^2, and
+    # the Lagrange interpolation over the four packets gives exactly zero at tick 1.5.
+    @apart @testset "a type 5 quaternion that interpolates to zero" begin
+        p = joinpath(mktempdir(), "ck05_zero_quaternion.bc")
+        hw = ckopn(p, "ZERO")
+        ticks = [0.0, 1.0, 2.0, 3.0]
+        scalar = [9.0, 1.0, 1.0, 9.0]
+        av = [1.0e-3, 2.0e-3, 3.0e-3]
+        ckw05(hw, 3, 3, 0.0, 3.0, -77950, "J2000", true, "SUBTYPE 3", ticks, [[s, 0.0, 0.0, 0.0, av...] for s in scalar], 1.0, 1, [0.0])
+        ckw05(hw, 1, 3, 0.0, 3.0, -77951, "J2000", false, "SUBTYPE 1", ticks, [[s, 0.0, 0.0, 0.0] for s in scalar], 1.0, 1, [0.0])
+        ckcls(hw)
+        zctx = SpiceContext()
+        furnsh(zctx, p)
+        SPICE.furnsh(p)
+        try
+            cmat, avz, _ = ckgpav(zctx, -77950, 1.5, 0.0, "J2000")
+            r = SPICE.ckgpav(-77950, 1.5, 0.0, "J2000")
+            @test cmat == r[1] == [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]
+            @test avz == r[2]
+            @test throws_kind(() -> ckgp(zctx, -77951, 1.5, 0.0, "J2000"), :dividebyzero)
+            @test_throws SPICE.SpiceError SPICE.ckgp(-77951, 1.5, 0.0, "J2000")
+        finally
+            SPICE.unload(p)
+        end
+    end
+
     @apart @testset "concurrent readers" begin
         if Threads.nthreads() == 1
             skip_notice("10. concurrent CK readers", "one thread only")

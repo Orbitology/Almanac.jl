@@ -515,11 +515,14 @@ in the number type of `t` and the quaternion is normalized. `av` is zero unless
         s4, d4 = _ck_hermite!(w, dw, data, xb, pb + 4, 4, packsz, n, rate, t)
     end
     mags = _ck_vnormg(s1, s2, s3, s4)
-    primal(mags) == 0.0 && _ck_zeroquat()
-    # `vsclg_` by the reciprocal of the norm; subtype 3 divides by it (`vhatg_`)
     if subtyp == 3
-        q = (s1 / mags, s2 / mags, s3 / mags, s4 / mags)
+        # `vhatg_`: a division by the norm, and the zero quaternion for a norm of zero,
+        # which `q2m_` turns into the identity matrix
+        z = zero(s1)
+        q = primal(mags) == 0.0 ? (z, z, z, z) : (s1 / mags, s2 / mags, s3 / mags, s4 / mags)
     else
+        # `vsclg_` by the reciprocal of the norm, which must not be zero
+        primal(mags) == 0.0 && _ck_zeroquat()
         r = 1.0 / mags
         q = (r * s1, r * s2, r * s3, r * s4)
     end
