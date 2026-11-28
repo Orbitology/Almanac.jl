@@ -350,18 +350,36 @@ See also [`subpnt`](@ref), [`ilumin`](@ref).
 """
 function subslr end
 
+# The CHKFSTR of `subpnt_c` and `subslr_c`. The public forms make it, and the geometry
+# finder calls `_geo_subpnt` without it, as SPICELIB calls `subpnt_`.
+@inline function _geo_sub_chkfstr(who, method, target, fixref, abcorr, obsrvr)
+    _chkfstr(who, "string `method`", method)
+    _chkfstr(who, "string `target`", target)
+    _chkfstr(who, "string `fixref`", fixref)
+    _chkfstr(who, "string `abcorr`", abcorr)
+    _chkfstr(who, "string `obsrvr`", obsrvr)
+    return nothing
+end
+
 for (f, g) in ((:subpnt, :_geo_subpnt), (:subslr, :_geo_subslr))
+    who = string(f)
     @eval begin
-        $f(
-            ks::KernelSet, method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID,
-            abcorr::AbcorrArg, obsrvr::NameOrID
-        ) =
-            $g(ks, _DSK_DEFAULT_TOLS, method, target, et, fixref, abcorr, obsrvr)
-        $f(
-            ctx::SpiceContext, method::AbstractString, target::NameOrID, et::Real,
-            fixref::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID
-        ) =
-            $g(kernelset(ctx), dsktolerances(ctx), method, target, et, fixref, abcorr, obsrvr)
+        function $f(
+                ks::KernelSet, method::AbstractString, target::NameOrID, et::Real,
+                fixref::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID
+            )
+            _geo_sub_chkfstr($who, method, target, fixref, abcorr, obsrvr)
+            return $g(ks, _DSK_DEFAULT_TOLS, method, target, et, fixref, abcorr, obsrvr)
+        end
+        function $f(
+                ctx::SpiceContext, method::AbstractString, target::NameOrID, et::Real,
+                fixref::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID
+            )
+            _geo_sub_chkfstr($who, method, target, fixref, abcorr, obsrvr)
+            return $g(
+                kernelset(ctx), dsktolerances(ctx), method, target, et, fixref, abcorr, obsrvr
+            )
+        end
         $f(
             method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID,
             abcorr::AbcorrArg, obsrvr::NameOrID

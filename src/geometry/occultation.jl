@@ -416,6 +416,14 @@ function _geo_occult(
         shape1::AbstractString, frame1::NameOrID, targ2::NameOrID, shape2::AbstractString,
         frame2::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID, et::Real
     )
+    _chkfstr("occult", "string `targ1`", targ1)       # CHKFSTR of occult_c
+    _chkfstr("occult", "string `shape1`", shape1)
+    _chkfstr("occult", "string `frame1`", frame1)
+    _chkfstr("occult", "string `targ2`", targ2)
+    _chkfstr("occult", "string `shape2`", shape2)
+    _chkfstr("occult", "string `frame2`", frame2)
+    _chkfstr("occult", "string `abcorr`", abcorr)
+    _chkfstr("occult", "string `obsrvr`", obsrvr)
     _plain_epoch(et, "occult")
     b1 = _geo_occ_parse(ks, targ1, shape1, "first target")
     b2 = _geo_occ_parse(ks, targ2, shape2, "second target")

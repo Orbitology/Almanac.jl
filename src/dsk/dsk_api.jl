@@ -790,6 +790,7 @@ kernels. With an integer `target`, an integer `fixref` and `SVector` arguments i
 allocate.
 
 Throws `SpiceError`:
+- `:emptystring` if `target` or `fixref` is an empty string;
 - `:badpriorityspec` if `pri` is `true`, as CSPICE;
 - `:idcodenotfound` if the target or the frame is not known, `:noframeinfo` if the center
   of the frame is not known, `:invalidframe` if the frame is not centered on the target;
@@ -827,6 +828,8 @@ dskxsi(pri::Bool, target::NameOrID, srflst, et::Real, fixref::NameOrID, vertex, 
         ks::KernelSet, tols::DSKTolerances, pri::Bool, target, srflst,
         et::Real, fixref, vertex, raydir
     )
+    _chkfstr("dskxsi", "string `target`", target)       # CHKFSTR of dskxsi_c
+    _chkfstr("dskxsi", "string `fixref`", fixref)
     pri && _dsk_bad_pri()
     trgcde = _body_id(ks, target, "target")
     fixfid = _dsk_fixfid(ks, fixref, trgcde, target)
@@ -877,11 +880,19 @@ dskxv!(
 ) =
     dskxv!(xptarr, fndarr, default_context(), pri, target, srflst, et, fixref, vtxarr, dirarr)
 
+# The CHKFSTR of `dskxv_c`, which comes before every other check of `dskxv` and `dskxv!`.
+@inline function _dskxv_chkfstr(target, fixref)
+    _chkfstr("dskxv", "string `target`", target)
+    _chkfstr("dskxv", "string `fixref`", fixref)
+    return nothing
+end
+
 function _dsk_xv!(
         xptarr::AbstractVector{Vec3{Float64}}, fndarr::AbstractVector{Bool},
         ks::KernelSet, tols::DSKTolerances, pri::Bool, target, srflst, et::Real, fixref,
         vtxarr, dirarr
     )
+    _dskxv_chkfstr(target, fixref)
     pri && _dsk_bad_pri()
     nrays = _dsk_count3(vtxarr)
     nrays < 1 && throw(SpiceError(:invalidcount, "dskxv: the number of rays must be positive"))
@@ -928,6 +939,7 @@ function dskxv(
         ks::Union{KernelSet, SpiceContext}, pri::Bool, target::NameOrID, srflst, et::Real,
         fixref::NameOrID, vtxarr, dirarr
     )
+    _dskxv_chkfstr(target, fixref)
     n = _dsk_count3(vtxarr)
     return dskxv!(
         Vector{Vec3{Float64}}(undef, n), Vector{Bool}(undef, n), ks, pri, target,

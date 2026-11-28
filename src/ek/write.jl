@@ -474,8 +474,8 @@ function ekbseg(
         h::DASHandle, tabnam::AbstractString, cnames::AbstractVector{<:AbstractString},
         decls::AbstractVector{<:AbstractString}
     )
+    _chkfstr("ekbseg", "table name", tabnam)         # CHKFSTR of ekbseg_c
     _ekw_check(h, "ekbseg")
-    _chkfstr("ekbseg", "table name", tabnam)
     # 32 characters, as `ekbseg` checks; the file has room for 64 (`_EK_TNAMSZ`).
     _ekw_chckid("EK table name", 32, tabnam)
     _ekw_isident(tabnam) || throw(
@@ -1061,6 +1061,7 @@ function ekifld(
         h::DASHandle, tabnam::AbstractString, nrows::Integer,
         cnames::AbstractVector{<:AbstractString}, decls::AbstractVector{<:AbstractString}
     )
+    _chkfstr("ekifld", "string `tabnam`", tabnam)       # CHKFSTR of ekifld_c
     nrows < 1 && throw(SpiceError(:invalidcount, "Number of rows must be > 0, was $nrows. "))
     segno = ekbseg(h, tabnam, cnames, decls)
     _, mbase = _ek_mloc(h, segno)

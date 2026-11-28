@@ -196,6 +196,8 @@ end
 
 const AbcorrArg = Union{AbstractString, Aberration}
 
+@inline _chkfstr(::AbstractString, ::AbstractString, ::Aberration) = nothing
+
 @inline _ssb(ks::KernelSet, body::Int32, et, iref::Int32) =
     spk_jet(ks, body, et, iref, Int32(0), Val(1))
 
@@ -775,6 +777,7 @@ Throws the errors of [`spkgeo`](@ref).
 - [NAIF documentation of `spkssb_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/spkssb_c.html)
 """
 function spkssb(ks::KernelSet, targ::Integer, et::Real, ref::NameOrID)
+    _chkfstr("spkssb", "string `ref`", ref)       # CHKFSTR of spkssb_c
     r, v = spk_jet(ks, Int32(targ), check_epoch(et), frame_id(ks, ref), Int32(0), Val(1))
     return vcat(r, v)
 end
@@ -801,7 +804,9 @@ derivative of `lt` (no unit). The `LT` forms make one iteration. The `CN` forms 
 at most five and stop when the light time changes by less than `1e-17 * max(1, |epoch|)`.
 
 Throws `SpiceError`:
-- `:invalidoption` if `abcorr` is not valid (checked first, as in CSPICE);
+- `:emptystring` if `ref` or `abcorr` is an empty string;
+- `:invalidoption` if `abcorr` is not valid (checked before the other arguments, as in
+  CSPICE);
 - `:badframe` if `ref` is not inertial;
 - `:badarg` if `stobs` does not have 6 elements or `et` is not finite;
 - `:dividebyzero` if the range rate of the target is above `(1 - 1e-10)` times the
@@ -818,6 +823,8 @@ function spkltc(
         ks::KernelSet, targ::Integer, et::Real, ref::NameOrID, abcorr::AbcorrArg,
         stobs::AbstractVector
     )
+    _chkfstr("spkltc", "string `ref`", ref)       # CHKFSTR of spkltc_c
+    _chkfstr("spkltc", "string `abcorr`", abcorr)
     corr = Aberration(abcorr)
     robs, vobs = _m_pv(_m_v6(stobs))
     q = _ltc(
@@ -863,6 +870,8 @@ function spkaps(
         ks::KernelSet, targ::Integer, et::Real, ref::NameOrID, abcorr::AbcorrArg,
         stobs::AbstractVector, accobs::AbstractVector
     )
+    _chkfstr("spkaps", "string `ref`", ref)       # CHKFSTR of spkaps_c
+    _chkfstr("spkaps", "string `abcorr`", abcorr)
     corr = Aberration(abcorr)
     robs, vobs = _m_pv(_m_v6(stobs))
     q = _aps(
@@ -904,6 +913,8 @@ function spkacs(
         ks::KernelSet, targ::Integer, et::Real, ref::NameOrID, abcorr::AbcorrArg,
         obs::Integer
     )
+    _chkfstr("spkacs", "string `ref`", ref)       # CHKFSTR of spkacs_c
+    _chkfstr("spkacs", "string `abcorr`", abcorr)
     corr = Aberration(abcorr)
     e = check_epoch(et)
     iref = _need_inertial(ks, frame_id(ks, ref))
@@ -932,7 +943,9 @@ iteration and the `CN` forms three, as in CSPICE. `sobs` comes before `abcorr`, 
 CSPICE.
 
 Throws `SpiceError`:
-- `:spkinvalidoption` if `abcorr` is not valid (checked first, as in CSPICE);
+- `:emptystring` if `ref` or `abcorr` is an empty string;
+- `:spkinvalidoption` if `abcorr` is not valid (checked before the other arguments, as
+  in CSPICE);
 - `:badframe` if `ref` is not inertial;
 - `:badarg` if `sobs` does not have 6 elements or `et` is not finite;
 - `:valueoutofrange` if (for `+S`) the speed of the observer is not below the speed of
@@ -949,6 +962,8 @@ function spkapo(
         ks::KernelSet, targ::Integer, et::Real, ref::NameOrID, sobs::AbstractVector,
         abcorr::AbcorrArg
     )
+    _chkfstr("spkapo", "string `ref`", ref)       # CHKFSTR of spkapo_c
+    _chkfstr("spkapo", "string `abcorr`", abcorr)
     corr = _spk_abcorr(abcorr)
     robs, vobs = _m_pv(_m_v6(sobs))
     return _apo(

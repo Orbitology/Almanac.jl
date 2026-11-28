@@ -457,6 +457,14 @@ function gfsubc(
         relate::AbstractString, refval::Real, adjust::Real, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gfsubc", "string `target`", target)       # CHKFSTR of gfsubc_c
+    _chkfstr("gfsubc", "string `fixref`", fixref)
+    _chkfstr("gfsubc", "string `method`", method)
+    _chkfstr("gfsubc", "string `abcorr`", abcorr)
+    _chkfstr("gfsubc", "string `obsrvr`", obsrvr)
+    _chkfstr("gfsubc", "string `crdsys`", crdsys)
+    _chkfstr("gfsubc", "string `coord`", coord)
+    _chkfstr("gfsubc", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     _gf_cslv_checks(adjust, run.tol)
@@ -530,6 +538,14 @@ function gfsntc(
         refval::Real, adjust::Real, step::Real, cnfine::Window; tol::Real = _GF_CNVTOL,
         bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gfsntc", "string `target`", target)       # CHKFSTR of gfsntc_c
+    _chkfstr("gfsntc", "string `fixref`", fixref)
+    _chkfstr("gfsntc", "string `method`", method)
+    _chkfstr("gfsntc", "string `abcorr`", abcorr)       # twice in gfsntc_c, which does not check `obsrvr`
+    _chkfstr("gfsntc", "string `dref`", dref)
+    _chkfstr("gfsntc", "string `crdsys`", crdsys)
+    _chkfstr("gfsntc", "string `coord`", coord)
+    _chkfstr("gfsntc", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     _gf_cslv_checks(adjust, run.tol)

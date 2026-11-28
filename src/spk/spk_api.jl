@@ -359,12 +359,13 @@ Return the geometric state of body `targ` relative to body `obs` in frame `ref` 
 distance divided by the speed of light, in seconds. `et` is in seconds past J2000
 TDB. `targ` and `obs` are NAIF ID codes; `ref` is a frame name or a frame ID.
 
-Throws `SpiceError(:unknownframe)` if `ref` is not a known frame name,
-`SpiceError(:badarg)` if `et` is not finite, and [`SpkInsufficientDataError`](@ref) if
-no SPK file is loaded (`:noloadedfiles`) or the loaded SPK files do not connect `targ`
-and `obs` at `et` (`:spkinsuffdata`). As in CSPICE, `targ == obs` gives a zero state
-and a zero light time before `ref` and `et` are checked; so does [`spkezr`](@ref) with
-the correction `"NONE"`.
+Throws `SpiceError(:emptystring)` if `ref` is an empty string,
+`SpiceError(:unknownframe)` if `ref` is not a known frame name, `SpiceError(:badarg)`
+if `et` is not finite, and [`SpkInsufficientDataError`](@ref) if no SPK file is loaded
+(`:noloadedfiles`) or the loaded SPK files do not connect `targ` and `obs` at `et`
+(`:spkinsuffdata`). As in CSPICE, `targ == obs` gives a zero state and a zero light
+time before `et` is checked and `ref` is looked up; so does [`spkezr`](@ref) with the
+correction `"NONE"`.
 
 See also [`spkezr`](@ref), [`spkssb`](@ref).
 
@@ -373,7 +374,9 @@ See also [`spkezr`](@ref), [`spkssb`](@ref).
 - [NAIF documentation of `spkgeo_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/spkgeo_c.html)
 """
 function spkgeo(ks::KernelSet, targ::Integer, et::Real, ref::NameOrID, obs::Integer)
-    # As in CSPICE, a body relative to itself is zero before `ref` and `et` are checked.
+    _chkfstr("spkgeo", "string `ref`", ref)       # CHKFSTR of spkgeo_c
+    # As in CSPICE, a body relative to itself is zero before `et` is checked and `ref`
+    # is looked up.
     targ == obs && return zero(SVector{6, typeof(float(et))}), zero(float(et))
     r, v = spk_jet(ks, Int32(targ), check_epoch(et), frame_id(ks, ref), Int32(obs), Val(1))
     return vcat(r, v), _m_norm(r) / CLIGHT
@@ -392,7 +395,7 @@ Return the geometric position of body `targ` relative to body `obs` in frame `re
 
 `pos` is an `SVector{3}` in km and `lt` is in seconds. The arguments and the errors are
 those of [`spkgeo`](@ref). As in CSPICE, `targ == obs` gives a zero position and a zero
-light time before `ref` and `et` are checked.
+light time before `et` is checked and `ref` is looked up.
 
 See also [`spkezp`](@ref), [`spkpos`](@ref).
 
@@ -401,6 +404,7 @@ See also [`spkezp`](@ref), [`spkpos`](@ref).
 - [NAIF documentation of `spkgps_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/spkgps_c.html)
 """
 function spkgps(ks::KernelSet, targ::Integer, et::Real, ref::NameOrID, obs::Integer)
+    _chkfstr("spkgps", "string `ref`", ref)       # CHKFSTR of spkgps_c
     targ == obs && return zero(Vec3{typeof(float(et))}), zero(float(et))
     (r,) = spk_jet(ks, Int32(targ), check_epoch(et), frame_id(ks, ref), Int32(obs), Val(0))
     return r, _m_norm(r) / CLIGHT

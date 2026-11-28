@@ -65,6 +65,12 @@ function _geo_illumg(
         target::NameOrID, ilusrc::NameOrID, et::Real, fixref::NameOrID, abcorr::AbcorrArg,
         obsrvr::NameOrID, spoint::AbstractVector
     )
+    _chkfstr("illumg/ilumin", "string `method`", method)       # CHKFSTR of illumg_c and ilumin_c
+    _chkfstr("illumg/ilumin", "string `target`", target)
+    _chkfstr("illumg/ilumin", "string `ilusrc`", ilusrc)
+    _chkfstr("illumg/ilumin", "string `fixref`", fixref)
+    _chkfstr("illumg/ilumin", "string `abcorr`", abcorr)
+    _chkfstr("illumg/ilumin", "string `obsrvr`", obsrvr)
     m, trgcde, fixfid, sp, e, trgepc, srfvec, tipos =
         _geo_illum_prep(ks, method, target, ilusrc, et, fixref, abcorr, obsrvr, spoint)
     normal = if m.dsk
@@ -80,6 +86,12 @@ function _geo_illumf(
         target::NameOrID, ilusrc::NameOrID, et::Real, fixref::NameOrID, abcorr::AbcorrArg,
         obsrvr::NameOrID, spoint::AbstractVector
     )
+    _chkfstr("illumf", "string `method`", method)       # CHKFSTR of illumf_c
+    _chkfstr("illumf", "string `target`", target)
+    _chkfstr("illumf", "string `ilusrc`", ilusrc)
+    _chkfstr("illumf", "string `fixref`", fixref)
+    _chkfstr("illumf", "string `abcorr`", abcorr)
+    _chkfstr("illumf", "string `obsrvr`", obsrvr)
     m, trgcde, fixfid, sp, e, trgepc, srfvec, tipos =
         _geo_illum_prep(ks, method, target, ilusrc, et, fixref, abcorr, obsrvr, spoint)
     obspos = -srfvec
@@ -286,6 +298,10 @@ function phaseq(
         ks::KernelSet, et::Real, target::NameOrID, illmn::NameOrID, obsrvr::NameOrID,
         abcorr::AbcorrArg
     )
+    _chkfstr("phaseq", "string `target`", target)       # CHKFSTR of phaseq_c
+    _chkfstr("phaseq", "string `illmn`", illmn)
+    _chkfstr("phaseq", "string `obsrvr`", obsrvr)
+    _chkfstr("phaseq", "string `abcorr`", abcorr)
     targ = _body_id(ks, target, "target")
     illum = _body_id(ks, illmn, "illumination source")
     obs = _body_id(ks, obsrvr, "observer")

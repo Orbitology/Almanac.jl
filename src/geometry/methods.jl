@@ -80,8 +80,6 @@ spellings are compared as they are and do not allocate; every other string goes 
 end
 
 @noinline function _geo_method_slow(ks::KernelSet, bodyid::Integer, method::AbstractString)
-    # The C wrappers of CSPICE reject an empty string before the parser sees it.
-    isempty(method) && throw(SpiceError(:emptystring, "the method string is empty"))
     shape, subtyp, _, srflst = _dsk_parse_method(ks, bodyid, method)
     sub = subtyp == "" ? 0x00 : subtyp == "NEAR POINT" ? _GEO_NEARPOINT :
         subtyp == "NADIR" ? _GEO_NADIR : _GEO_INTERCEPT

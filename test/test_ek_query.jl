@@ -1066,7 +1066,7 @@ group("EK queries: catalogue, query corpus against CSPICE and against the model"
         # it builds the message; these queries are not sent to it.)
         for q2 in (
                 "SELECT ID FROM EVENTS WHERE VEC < 3.0", "SELECT ID FROM EVENTS ORDER BY VEC",
-                "SELECT ID FROM EVENTS WHERE ID < 3 AND TAGS = 'a'", "",
+                "SELECT ID FROM EVENTS WHERE ID < 3 AND TAGS = 'a'", " ",
             )
             r2, err2, msg2 = ekfind(ctx, q2)
             @test err2 && !isempty(msg2) && r2.nmrows == 0

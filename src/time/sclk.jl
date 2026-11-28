@@ -460,6 +460,7 @@ See also [`scfmt`](@ref).
 - [NAIF documentation of `sctiks_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/sctiks_c.html)
 """
 function sctiks(ks::KernelSet, sc::Integer, clkstr::AbstractString)
+    _chkfstr("sctiks", "string `clkstr`", clkstr)       # CHKFSTR of sctiks_c
     ticks, msg = _sclk_ticks(_sclk(ks, sc), clkstr)
     isempty(msg) || throw(SpiceError(:invalidsclkstring, msg))
     return ticks
@@ -615,6 +616,7 @@ partition. Without a partition number, the first partition that holds the count 
 taken.
 
 Throws `SpiceError`:
+- `:emptystring` if `sclkch` is empty;
 - `:badpartnumber` if the partition number cannot be read or is not the number of a
   partition;
 - `:notinpart` if the count is not inside the given partition;
@@ -630,6 +632,7 @@ See also [`scdecd`](@ref), [`scs2e`](@ref).
 - [NAIF documentation of `scencd_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/scencd_c.html)
 """
 function scencd(ks::KernelSet, sc::Integer, sclkch::AbstractString)
+    _chkfstr("scencd", "string `sclkch`", sclkch)       # CHKFSTR of scencd_c
     sclkdp, kind, msg = _sclk_encode(_sclk(ks, sc), sc, sclkch, true)
     isempty(msg) || throw(SpiceError(kind, msg))
     return sclkdp
@@ -758,8 +761,10 @@ See also [`sce2s`](@ref).
 
 - [NAIF documentation of `scs2e_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/scs2e_c.html)
 """
-scs2e(ks::KernelSet, sc::Integer, sclkch::AbstractString) =
-    sct2e(ks, sc, scencd(ks, sc, sclkch))
+function scs2e(ks::KernelSet, sc::Integer, sclkch::AbstractString)
+    _chkfstr("scs2e", "string `sclkch`", sclkch)       # CHKFSTR of scs2e_c
+    return sct2e(ks, sc, scencd(ks, sc, sclkch))
+end
 
 # --- forms on a context and on the default context ---------------------------------------
 

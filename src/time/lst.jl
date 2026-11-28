@@ -148,6 +148,7 @@ ls = rad2deg(lspcn("EARTH", str2et("2025-03-01"), "LT+S"))    # degrees
 - [NAIF documentation of `lspcn_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/lspcn_c.html)
 """
 function lspcn(ks::KernelSet, body::NameOrID, et::Real, abcorr::AbcorrArg)
+    _chkfstr("lspcn", "string `body`", body)       # CHKFSTR of lspcn_c
     _plain_epoch(et, "lspcn")
     id = body_code(ks, body)
     tipm = tipbod(ks, 1, id, et)

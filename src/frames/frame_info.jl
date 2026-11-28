@@ -482,6 +482,7 @@ the frame class ID of a binary PCK frame, the ID that its segments carry (31008 
 constants of a text PCK.
 
 Throws `SpiceError`:
+- `:emptystring` if `ref` is an empty string;
 - `:irfnotrec` if `ref` is not a built-in inertial frame;
 - `:badarg` if `et` is not finite;
 - `:framedatanotfound` if no PCK data are loaded for the body;
@@ -499,7 +500,10 @@ See also [`tisbod`](@ref), [`pxform`](@ref).
 
 - [NAIF documentation of `tipbod_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/tipbod_c.html)
 """
-tipbod(ks::KernelSet, ref::NameOrID, body::Integer, et::Real) = _tis_jet(ks, ref, body, et)[1]
+function tipbod(ks::KernelSet, ref::NameOrID, body::Integer, et::Real)
+    _chkfstr("tipbod", "string `ref`", ref)       # CHKFSTR of tipbod_c
+    return _tis_jet(ks, ref, body, et)[1]
+end
 
 """
     tisbod([ctx,] ref, body, et) -> SMatrix{6,6}
@@ -524,6 +528,7 @@ See also [`sxform`](@ref).
 - [NAIF documentation of `tisbod_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/tisbod_c.html)
 """
 function tisbod(ks::KernelSet, ref::NameOrID, body::Integer, et::Real)
+    _chkfstr("tisbod", "string `ref`", ref)       # CHKFSTR of tisbod_c
     r, dr = _tis_jet(ks, ref, body, et)
     return vcat(hcat(r, zero(r)), hcat(dr, r))
 end
@@ -645,8 +650,10 @@ See also [`bodvcd`](@ref).
 
 - [NAIF documentation of `bodfnd_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/bodfnd_c.html)
 """
-bodfnd(ks::KernelSet, body::Integer, item::AbstractString) =
-    haskey(ks.pool, _body_key(body, item))
+function bodfnd(ks::KernelSet, body::Integer, item::AbstractString)
+    _chkfstr("bodfnd", "string `item`", item)       # CHKFSTR_VAL of bodfnd_c
+    return haskey(ks.pool, _body_key(body, item))
+end
 
 """
     bodvcd([ctx,] bodyid, item) -> Vector{Float64}
@@ -678,8 +685,10 @@ julia> bodvcd(ctx, 399, "RADII")
 
 - [NAIF documentation of `bodvcd_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/bodvcd_c.html)
 """
-bodvcd(ks::KernelSet, bodyid::Integer, item::AbstractString) =
-    gdpool(ks, _body_key(bodyid, item))
+function bodvcd(ks::KernelSet, bodyid::Integer, item::AbstractString)
+    _chkfstr("bodvcd", "string `item`", item)       # CHKFSTR of bodvcd_c
+    return gdpool(ks, _body_key(bodyid, item))
+end
 
 # Context and default-context forms.
 for f in (:frinfo, :cidfrm, :tkfram)

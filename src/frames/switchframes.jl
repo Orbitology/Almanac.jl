@@ -12,7 +12,7 @@ strings through `str2et` (which needs a leap-second kernel), as `zzswffet_`.
 function _sw_times(ks::KernelSet, key::AbstractString)
     v = ks.pool[key]
     v isa Vector{Float64} && return copy(v)
-    return Float64[str2et(ks, s) for s in v]
+    return Float64[_str2et(ks, s) for s in v]
 end
 
 """

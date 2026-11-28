@@ -97,7 +97,8 @@ If `ref` is not the frame of the segment, the matrix is changed with the rotatio
 between the two frames at the epoch of `clkout`. This needs the SCLK kernel of the
 spacecraft, unless both frames are inertial.
 
-Throws `SpiceError(:unknownframe)` if `ref` is not a known frame name; `ref` is read only
+Throws `SpiceError(:emptystring)` if `ref` is an empty string and
+`SpiceError(:unknownframe)` if `ref` is not a known frame name; `ref` is looked up only
 when a pointing is found. The change of frame throws the kinds of [`pxform`](@ref),
 and the kinds of [`sct2e`](@ref) if the SCLK kernel is not loaded: [`ckfrot`](@ref)
 returns `nothing` in this case, and `ckgp` throws, both as in CSPICE.
@@ -129,6 +130,7 @@ See also [`ckgpav`](@ref), [`ckcov`](@ref), [`pxform`](@ref).
 - [NAIF documentation of `ckgp_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/ckgp_c.html)
 """
 function ckgp(ks::KernelSet, inst::Integer, sclkdp::Real, tol::Real, ref::NameOrID)
+    _chkfstr("ckgp", "string `ref`", ref)       # CHKFSTR of ckgp_c
     i = Int32(inst)
     tol < 0 && return nothing                # `ckgp_`/`ckgpav_`: not found, no error
     found, cmat, _, clkout, refseg = _ck_search(ks, i, Float64(sclkdp), Float64(tol), false)
@@ -158,6 +160,7 @@ pointing. The other arguments, results and errors are those of [`ckgp`](@ref).
 - [NAIF documentation of `ckgpav_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/ckgpav_c.html)
 """
 function ckgpav(ks::KernelSet, inst::Integer, sclkdp::Real, tol::Real, ref::NameOrID)
+    _chkfstr("ckgpav", "string `ref`", ref)       # CHKFSTR of ckgpav_c
     i = Int32(inst)
     tol < 0 && return nothing                # `ckgp_`/`ckgpav_`: not found, no error
     found, cmat, av, clkout, refseg = _ck_search(ks, i, Float64(sclkdp), Float64(tol), true)
@@ -292,6 +295,7 @@ julia> ckmeta(-77000, "SCLK"), ckmeta(5, "SPK")
 - [NAIF documentation of `ckmeta_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/ckmeta_c.html)
 """
 function ckmeta(ks::KernelSet, ckid::Integer, meta::AbstractString)
+    _chkfstr("ckmeta", "string `meta`", meta)       # CHKFSTR of ckmeta_c
     item = uppercase(strip(meta))
     k = item == "SCLK" ? 1 : item == "SPK" ? 2 : throw(
             SpiceError(
@@ -501,6 +505,9 @@ function ckcov!(
         cover::Window, ks::KernelSet, ck, idcode::Integer,
         needav::Bool, level::AbstractString, tol::Real, timsys::AbstractString
     )
+    ck isa AbstractString && _chkfstr("ckcov", "string `ckfnm`", ck)       # CHKFSTR of ckcov_c
+    _chkfstr("ckcov", "string `level`", level)
+    _chkfstr("ckcov", "string `timsys`", timsys)
     tolf = _ck_check_tol(tol)
     lev = uppercase(strip(level))
     lev in ("SEGMENT", "INTERVAL") || throw(

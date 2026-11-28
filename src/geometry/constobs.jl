@@ -212,8 +212,6 @@ const _GEO_AT_CENTER = 3
     return _geo_refloc_slow(refloc)
 end
 @noinline function _geo_refloc_slow(refloc::AbstractString)
-    # The C wrappers of CSPICE reject an empty string before the Fortran code sees it.
-    isempty(refloc) && throw(SpiceError(:emptystring, "the reference frame locus string is empty"))
     _eqstr(refloc, "OBSERVER") && return _GEO_AT_OBSERVER
     _eqstr(refloc, "TARGET") && return _GEO_AT_TARGET
     _eqstr(refloc, "CENTER") && return _GEO_AT_CENTER
@@ -333,6 +331,12 @@ function spkcvo(
         refloc::AbstractString, abcorr::AbcorrArg, obssta::AbstractVector, obsepc::Real,
         obsctr::NameOrID, obsref::NameOrID
     )
+    _chkfstr("spkcvo", "string `target`", target)       # CHKFSTR of spkcvo_c
+    _chkfstr("spkcvo", "string `outref`", outref)
+    _chkfstr("spkcvo", "string `refloc`", refloc)
+    _chkfstr("spkcvo", "string `abcorr`", abcorr)
+    _chkfstr("spkcvo", "string `obsctr`", obsctr)
+    _chkfstr("spkcvo", "string `obsref`", obsref)
     corr, ctrcde, trgcde, orfcde, evltyp =
         _geo_cv_args(ks, abcorr, obsctr, "observer center", target, "target", outref, refloc)
     pos, vel = _geo_state(obssta)
@@ -364,6 +368,12 @@ function spkcpo(
         refloc::AbstractString, abcorr::AbcorrArg, obspos::AbstractVector, obsctr::NameOrID,
         obsref::NameOrID
     )
+    _chkfstr("spkcpo", "string `target`", target)       # CHKFSTR of spkcpo_c
+    _chkfstr("spkcpo", "string `outref`", outref)
+    _chkfstr("spkcpo", "string `refloc`", refloc)
+    _chkfstr("spkcpo", "string `abcorr`", abcorr)
+    _chkfstr("spkcpo", "string `obsctr`", obsctr)
+    _chkfstr("spkcpo", "string `obsref`", obsref)
     corr, ctrcde, trgcde, orfcde, evltyp =
         _geo_cv_args(ks, abcorr, obsctr, "observer center", target, "target", outref, refloc)
     f = _GeoFixed(_dsk_vec3(obspos), zero(Vec3{Float64}), 0.0, ctrcde, _geo_known_frame(ks, obsref))
@@ -398,6 +408,12 @@ function spkcvt(
         trgref::NameOrID, et::Real, outref::NameOrID, refloc::AbstractString,
         abcorr::AbcorrArg, obsrvr::NameOrID
     )
+    _chkfstr("spkcvt", "string `trgctr`", trgctr)       # CHKFSTR of spkcvt_c
+    _chkfstr("spkcvt", "string `trgref`", trgref)
+    _chkfstr("spkcvt", "string `outref`", outref)
+    _chkfstr("spkcvt", "string `refloc`", refloc)
+    _chkfstr("spkcvt", "string `abcorr`", abcorr)
+    _chkfstr("spkcvt", "string `obsrvr`", obsrvr)
     corr, ctrcde, obscde, orfcde, evltyp =
         _geo_cv_args(ks, abcorr, trgctr, "target center", obsrvr, "observer", outref, refloc)
     pos, vel = _geo_state(trgsta)
@@ -429,6 +445,12 @@ function spkcpt(
         et::Real, outref::NameOrID, refloc::AbstractString, abcorr::AbcorrArg,
         obsrvr::NameOrID
     )
+    _chkfstr("spkcpt", "string `trgctr`", trgctr)       # CHKFSTR of spkcpt_c
+    _chkfstr("spkcpt", "string `trgref`", trgref)
+    _chkfstr("spkcpt", "string `outref`", outref)
+    _chkfstr("spkcpt", "string `refloc`", refloc)
+    _chkfstr("spkcpt", "string `abcorr`", abcorr)
+    _chkfstr("spkcpt", "string `obsrvr`", obsrvr)
     corr, ctrcde, obscde, orfcde, evltyp =
         _geo_cv_args(ks, abcorr, trgctr, "target center", obsrvr, "observer", outref, refloc)
     f = _GeoFixed(_dsk_vec3(trgpos), zero(Vec3{Float64}), 0.0, ctrcde, _geo_known_frame(ks, trgref))

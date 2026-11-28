@@ -28,6 +28,7 @@ run-time library of f2c. In the tables:
 | `nparsd` (text kernels, SCLK kernels, TLE fields) | Converts a decimal string to a double that is not always the nearest one: the GM of the Sun in `gm_de431.tpc` comes out 5 units in the last place low | The same doubles. The EK query scanner fixes it (below) | `pool` |
 | C casts of f2c (`(integer) x`, `i_dnnt`; `str2et`, `ekfind`) | A double outside the 32-bit range, or NaN, is undefined behavior in C: x86 gives the smallest 32-bit integer, ARM saturates | The x86 result on every machine, so it differs from CSPICE built for ARM | `time`, `ek_query` |
 | `hx2dp` | The exponent -2³¹ overflows when negated, and the routine divides by 16 once instead of returning zero | The same | `math_vectors` |
+| `gfsntc_c` | Checks the string `abcorr` twice and `obsrvr` never, so an empty observer name is not `SPICE(EMPTYSTRING)`: it goes on to the lookup of the body | The same checks | `emptystring` |
 
 ## Defects that Almanac.jl fixes
 

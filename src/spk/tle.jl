@@ -263,9 +263,9 @@ function spkw10(
         epochs
     )
     who = "spkw10"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     con = _seg_fixed(who, "consts", consts, 8)
     el, n, _ = _seg_flat(who, "elems", elems, 10)
     ep = _seg_vec(who, "epochs", epochs, n)

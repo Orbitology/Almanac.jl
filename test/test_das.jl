@@ -208,7 +208,7 @@ group("11. DAS files and DLA segment lists") do
 
         # An empty file, and a file with one data type only.
         e = joinpath(dir, "empty.das")
-        dascls(dasonw(e, "TEST", "", 0))
+        dascls(dasonw(e, "TEST", "empty", 0))
         ch = c_dasopr(e)
         @test c_daslla(ch) == (0, 0, 0)
         @test c_dashfs(ch) == (h2 = dasopr(e); s = dashfs(h2); dascls(h2); s)

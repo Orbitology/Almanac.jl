@@ -206,6 +206,14 @@ function gfilum(
         adjust::Real, step::Real, cnfine::Window; tol::Real = _GF_CNVTOL, bail = nothing,
         report = nothing, threads::Bool = false
     )
+    _chkfstr("gfilum", "string `method`", method)       # CHKFSTR of gfilum_c
+    _chkfstr("gfilum", "string `angtyp`", angtyp)
+    _chkfstr("gfilum", "string `target`", target)
+    _chkfstr("gfilum", "string `illmn`", illmn)
+    _chkfstr("gfilum", "string `fixref`", fixref)
+    _chkfstr("gfilum", "string `abcorr`", abcorr)
+    _chkfstr("gfilum", "string `obsrvr`", obsrvr)
+    _chkfstr("gfilum", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     q = GFIllumination(ks, method, angtyp, target, illmn, fixref, abcorr, obsrvr, spoint)

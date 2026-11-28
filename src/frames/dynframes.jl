@@ -142,7 +142,7 @@ function _dyn_bodyid(ks::KernelSet, id, name, item)
     key, v = _dyn_lookup(ks.pool, id, name, item, true)
     length(v) > 1 && _dyn_badsize(key, name, 1, length(v))
     v isa Vector{Float64} && return _gipool_first(v, key)::Int32
-    code = bods2c(ks, v[1])
+    code = _body_code_lookup(ks.name2code, v[1])       # BODS2C, which has no CHKFSTR
     code === nothing && throw(
         SpiceError(
             :notranslation, "the body name '$(v[1])' of the " *

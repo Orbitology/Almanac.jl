@@ -190,6 +190,11 @@ function azlcpo(
         abcorr::AbcorrArg, azccw::Bool, elplsz::Bool, obspos::AbstractVector, obsctr::NameOrID,
         obsref::NameOrID
     )
+    _chkfstr("azlcpo", "string `method`", method)       # CHKFSTR of azlcpo_c
+    _chkfstr("azlcpo", "string `target`", target)
+    _chkfstr("azlcpo", "string `abcorr`", abcorr)
+    _chkfstr("azlcpo", "string `obsctr`", obsctr)
+    _chkfstr("azlcpo", "string `obsref`", obsref)
     obscde = _body_id(ks, obsctr, "observer center")
     fxfcde = _frame_code(ks, obsref)
     center, _, found = _geo_frinfo(ks, fxfcde)

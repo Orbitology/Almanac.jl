@@ -459,18 +459,22 @@ struct WriterCase
         new(name, kind, (rng, k) -> SegArgs(gen(rng, k)), neo, cspice, bad)
 end
 
-"The frame and identifier checks that all SPK writers share."
+"""
+The frame and identifier checks that all writers share. A writer without a C function in
+CSPICE N0067 (`cwrapper = false`) checks no empty string, as SPICELIB: an empty frame is
+a frame that is not known, and an empty identifier is valid.
+"""
 function bad_ids(
         a; long::Symbol = :segidtoolong, nonprint::Symbol = :nonprintablechars,
-        fname::Symbol = :frame, empty_both::Bool = true
+        fname::Symbol = :frame, cwrapper::Bool = true
     )
     out = Any[
         ("unknown frame", merge(a, NamedTuple{(fname,)}(("NO_SUCH_FRAME",))), :invalidrefframe, true),
         ("identifier of 41 characters", merge(a, (segid = "A"^41,)), long, true),
         ("nonprintable identifier", merge(a, (segid = "BAD\tID",)), nonprint, true),
-        ("empty frame", merge(a, NamedTuple{(fname,)}(("",))), :emptystring, empty_both),
-        ("empty identifier", merge(a, (segid = "",)), :emptystring, empty_both),
+        ("empty frame", merge(a, NamedTuple{(fname,)}(("",))), cwrapper ? :emptystring : :invalidrefframe, true),
     ]
+    cwrapper && push!(out, ("empty identifier", merge(a, (segid = "",)), :emptystring, true))
     return out
 end
 
@@ -808,7 +812,7 @@ function bad_w0121(a, extended::Bool)
     dup = copy(a.epochs)
     length(dup) >= 3 && (dup[3] = dup[2])
     out = Any[
-        bad_ids(a; empty_both = false)..., bad_pds(a)...,
+        bad_ids(a; cwrapper = false)..., bad_pds(a)...,
         (
             "last after the last epoch", merge(a, (last = a.epochs[end] + 1.0,)),
             extended ? :coveragegap : :baddescrtimes, true,
@@ -872,7 +876,7 @@ function bad_w19(a)
     dup[2] = dup[1]
     one = merge(a, (npkts = [1; a.npkts[2:end]],))
     return Any[
-        bad_ids(a; empty_both = false)...,
+        bad_ids(a; cwrapper = false)...,
         ("first after last", merge(a, (first = a.last + 1.0,)), :baddescrtimes, true),
         ("bounds out of order", merge(a, (ivlbds = swapped,)), :boundsoutoforder, true),
         ("first before the bounds", merge(a, (first = a.ivlbds[1] - 1.0,)), :coveragegap, true),
@@ -1106,7 +1110,7 @@ function bad_ckw06(a)
     late = copy(a.sclkdp)
     late[1] = a.ivlbds[1] + 0.5
     out = Any[
-        bad_ids(a; fname = :ref, empty_both = false)...,
+        bad_ids(a; fname = :ref, cwrapper = false)...,
         ("first after last", merge(a, (first = a.last + 1.0,)), :baddescrtimes, true),
         ("bounds out of order", merge(a, (ivlbds = swapped,)), :boundsoutoforder, true),
         ("first before the bounds", merge(a, (first = a.ivlbds[1] - 1.0,)), :coveragegap, true),
@@ -1173,10 +1177,9 @@ function gen_pckw20(rng, k)
     )
 end
 function bad_pckw20(a)
-    # CSPICE N0067 has `pckw20_` and no `pckw20_c`, so the checks of the C wrapper (an
-    # empty string) are not compared with CSPICE: `both` is false for them.
+    # CSPICE N0067 has `pckw20_` and no `pckw20_c`, so the call checks no empty string.
     return Any[
-        bad_ids(a; long = :idstringtoolong, empty_both = false)...,
+        bad_ids(a; long = :idstringtoolong, cwrapper = false)...,
         ("degree 51", merge(a, (cdata = zeros(3 * 53, size(a.cdata, 2)),)), :invaliddegree, true),
         ("zero interval length", merge(a, (intlen = 0.0,)), :intlennotpos, true),
         ("first equal to last", merge(a, (first = a.last,)), :baddescrtimes, true),
@@ -1841,6 +1844,16 @@ group("9. DAF access, SPK and CK writers") do
                 @test throws_kind(() -> c.neo(hr, a), :dafnosuchhandle)
                 @test read(pn) == read(pref)
             end
+        end
+    end
+
+    # The writers without a C function in CSPICE N0067 take an empty identifier, as
+    # SPICELIB takes a blank one, and write the bytes of SPICELIB.
+    @apart @testset "writers without a C function: an empty identifier" begin
+        for name in ("spkw01", "spkw19", "spkw21", "ckw06", "pckw20")
+            c = writer_case(name)
+            pc, pn = write_both(c, dir, "empty_id_$name", [merge(c.gen(rng, 1), (segid = "",))])
+            @test padless(pn) == padless(pc)
         end
     end
 

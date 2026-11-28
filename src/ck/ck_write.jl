@@ -213,9 +213,10 @@ Every `ckwNN` writer puts its segment on disk when the call returns, with the da
 CSPICE writes from the same input. A call that throws writes nothing.
 
 Throws `SpiceError`. Every `ckwNN` writer throws:
+- `:emptystring` if `ref` or `segid` is empty, except `ckw06`, which has no C function in
+  CSPICE N0067;
 - `:dafnosuchhandle` if the handle is closed, `:dafinvalidaccess` if it is open for
   reading;
-- `:emptystring` if `ref` or `segid` is empty;
 - `:invalidrefframe` if the frame is not known;
 - `:nonprintablechars` or `:segidtoolong` if `segid` is not valid.
 
@@ -238,9 +239,9 @@ function ckw01(
         ref::SegFrame, segid::AbstractString, sclkdp, quats, avvs
     )
     who = "ckw01"
-    _daf_check_write(h, who)
     ref isa AbstractString && _chkfstr(who, "string `ref`", ref)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     t = _seg_vec(who, "sclkdp", sclkdp, -1)
     nrec = length(t)
     q, av, avflag = _ck_quats_avvs(who, quats, avvs, nrec)
@@ -309,9 +310,9 @@ function ckw02(
         ref::SegFrame, segid::AbstractString, start, stop, quats, avvs, rates
     )
     who = "ckw02"
-    _daf_check_write(h, who)
     ref isa AbstractString && _chkfstr(who, "string `ref`", ref)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     t0 = _seg_vec(who, "start", start, -1)
     nrec = length(t0)
     t1 = _seg_vec(who, "stop", stop, nrec)
@@ -424,9 +425,9 @@ function ckw03(
         ref::SegFrame, segid::AbstractString, sclkdp, quats, avvs, starts
     )
     who = "ckw03"
-    _daf_check_write(h, who)
     ref isa AbstractString && _chkfstr(who, "string `ref`", ref)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     t = _seg_vec(who, "sclkdp", sclkdp, -1)
     nrec = length(t)
     st = _seg_vec(who, "starts", starts, -1)
@@ -798,9 +799,9 @@ function ckw05(
         segid::AbstractString, sclkdp, packts, rate::Real, nints::Integer, starts
     )
     who = "ckw05"
-    _daf_check_write(h, who)
     ref isa AbstractString && _chkfstr(who, "string `ref`", ref)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     t = _seg_vec(who, "sclkdp", sclkdp, -1)
     n = length(t)
     allst = _seg_vec(who, "starts", starts, -1)
@@ -991,8 +992,6 @@ function ckw06(
     )
     who = "ckw06"
     _daf_check_write(h, who)
-    ref isa AbstractString && _chkfstr(who, "string `ref`", ref)
-    _chkfstr(who, "string `segid`", segid)
     nmini = _seg_mini_count(who, npkts, subtps, degres)
     pk = _seg_vec(who, "packts", packts, -1)
     t = _seg_vec(who, "sclkdp", sclkdp, -1)

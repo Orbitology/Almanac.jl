@@ -358,6 +358,12 @@ function _geo_limbpt(
         corloc::AbstractString, obsrvr::NameOrID, refvec0::AbstractVector, rolstp0::Real,
         ncuts::Integer, schstp0::Real, soltol0::Real, maxn::Integer
     )
+    _chkfstr("limbpt", "string `method`", method)       # CHKFSTR of limbpt_c
+    _chkfstr("limbpt", "string `target`", target)
+    _chkfstr("limbpt", "string `fixref`", fixref)
+    _chkfstr("limbpt", "string `abcorr`", abcorr)
+    _chkfstr("limbpt", "string `corloc`", corloc)
+    _chkfstr("limbpt", "string `obsrvr`", obsrvr)
     _plain_epoch(et0, "limbpt")
     corr = Aberration(abcorr)
     s = _geo_sign(corr)
@@ -542,6 +548,13 @@ function _geo_termpt(
         corloc::AbstractString, obsrvr::NameOrID, refvec0::AbstractVector, rolstp0::Real,
         ncuts::Integer, schstp0::Real, soltol0::Real, maxn::Integer
     )
+    _chkfstr("termpt", "string `method`", method)       # CHKFSTR of termpt_c
+    _chkfstr("termpt", "string `ilusrc`", ilusrc)
+    _chkfstr("termpt", "string `target`", target)
+    _chkfstr("termpt", "string `fixref`", fixref)
+    _chkfstr("termpt", "string `abcorr`", abcorr)
+    _chkfstr("termpt", "string `corloc`", corloc)
+    _chkfstr("termpt", "string `obsrvr`", obsrvr)
     _plain_epoch(et0, "termpt")
     corr = Aberration(abcorr)
     corr.transmit && throw(
@@ -995,6 +1008,13 @@ function tangpt(
         fixref::NameOrID, abcorr::AbcorrArg, corloc::AbstractString, obsrvr::NameOrID,
         dref::NameOrID, dvec0::AbstractVector
     )
+    _chkfstr("tangpt", "string `method`", method)       # CHKFSTR of tangpt_c
+    _chkfstr("tangpt", "string `target`", target)
+    _chkfstr("tangpt", "string `fixref`", fixref)
+    _chkfstr("tangpt", "string `abcorr`", abcorr)
+    _chkfstr("tangpt", "string `corloc`", corloc)
+    _chkfstr("tangpt", "string `obsrvr`", obsrvr)
+    _chkfstr("tangpt", "string `dref`", dref)
     _plain_epoch(et0, "tangpt")
     corr = Aberration(abcorr)
     s = _geo_sign(corr)
