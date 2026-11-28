@@ -370,6 +370,8 @@ group("12. math: vectors and matrices") do
             versus!(t, :mxmtg, () -> mxmtg(m1, m4), () -> CS.mxmtg(m1, m4))
             versus!(t, :xposeg, () -> xposeg(m1), () -> CS.xposeg(m1))
         end
+        # regression: `vzerog_c` gives false for a vector without elements
+        @test vzerog(Float64[]) === CS.vzerog(Float64[]) === false
         @test throws_kind(() -> vaddg([1.0, 2.0], [1.0]), :badarg)
         @test throws_kind(() -> mxmg(zeros(2, 3), zeros(2, 3)), :badarg)
         # The accuracy defect of `vsepg_c`: for two directions 1e-9 rad apart it loses
