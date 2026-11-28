@@ -565,8 +565,7 @@ group(
             got == want || @info "error kind" name got want
             @test got == want
             @test got == kind
-            # a state transformation checks the correction with `zzprscor_` in CSPICE
-            skind = kind === :spkinvalidoption ? :invalidoption : kind
+            skind = get(DynFix.STATE_KINDS, name, kind)
             @test df_neo_kind(() -> sxform(ctx2, "J2000", name, et)) ==
                 df_oracle_kind(:sxform_c, "J2000", name, et) == skind
             @test df_neo_kind(() -> spkezr(ctx2, 301, et, name, "LT+S", 399)) == skind

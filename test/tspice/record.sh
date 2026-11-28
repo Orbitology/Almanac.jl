@@ -11,9 +11,10 @@
 # OUTDIR.
 #
 # A full recording (no FAMILY) writes OUTDIR/logs/manifest.tsv: the source, the SHA-256
-# of the archive, the hashes of the files that made the wrappers, and the list of the
-# families; run.jl checks a recording against it. Each family adds its status to
-# OUTDIR/logs/status.tsv. The exit status is 1 if a family failed or timed out.
+# of the archive, the hashes of the files that made the program (the build script, the
+# wrappers, the logger and CORE-MATH), and the list of the families; run.jl checks a
+# recording against it. Each family adds its status to OUTDIR/logs/status.tsv. The exit
+# status is 1 if a family failed or timed out.
 #
 # Environment: JOBS (parallel families, default: the CPU threads, at most one per 2 GB of
 # available memory), TIMEOUT (seconds per family, default 1800), TSPICE_ALL=1 (log every
@@ -22,6 +23,7 @@
 # times per family, default 20000; see cspice/tspice_log.h).
 set -euo pipefail
 
+[ $# -ge 1 ] || { echo "usage: record.sh OUTDIR [FAMILY ...]" >&2; exit 1; }
 here=$(cd "$(dirname "$0")" && pwd)
 out=$(mkdir -p "$1" && cd "$1" && pwd)
 shift
@@ -31,7 +33,9 @@ echo "recording with $jobs parallel families"
 timeout=${TIMEOUT:-1800}
 
 exe=$(JOBS=$jobs bash "$here/cspice/build_cspice.sh" "$out" | tail -1)
-makers="cspice/instrument_c.py cspice/tables.py cspice/tspice_log.c cspice/signatures.tsv routines.txt"
+makers="cspice/build_cspice.sh cspice/check_math.sh cspice/instrument_c.py cspice/tables.py
+cspice/tspice_log.c cspice/signatures.tsv routines.txt
+$(cd "$here" && find cspice/crmath -type f | LC_ALL=C sort)"
 
 mkdir -p "$out/logs" "$out/work"
 if [ $# -gt 0 ]; then

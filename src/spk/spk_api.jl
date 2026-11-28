@@ -324,6 +324,15 @@ end
 "A body or a frame given by name or by integer ID."
 const NameOrID = Union{AbstractString, Integer}
 
+"The checks of `CHKFSTR` in the C wrappers of `spkezr_c` and `spkpos_c`: each argument that is a string is not empty, in the order of the arguments."
+@inline function _spk_chkfstr(who, targ, ref, abcorr, obs)
+    targ isa AbstractString && _chkfstr(who, "target name", targ)
+    ref isa AbstractString && _chkfstr(who, "frame name", ref)
+    abcorr isa AbstractString && _chkfstr(who, "aberration correction", abcorr)
+    obs isa AbstractString && _chkfstr(who, "observer name", obs)
+    return nothing
+end
+
 function spkder(
         ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, obs::NameOrID,
         ::Val{N}
@@ -426,10 +435,11 @@ can be a dual number (see [Differentiate with ForwardDiff](@ref)).
 The SPK segments connect a body to its center, and that center to the next one. The
 call needs such a chain from `targ` and from `obs` to a common body.
 
-Throws `SpiceError`:
-- `:idcodenotfound` if a body name is not known, `:unknownframe` if a frame name is
-  not known;
-- `:invalidoption` if `abcorr` is not valid, `:badarg` if `et` is not finite;
+Throws `SpiceError`, with the checks in the order of CSPICE:
+- `:emptystring` if `targ`, `ref`, `abcorr` or `obs` is an empty string;
+- `:idcodenotfound` if a body name is not known;
+- `:invalidoption` if `abcorr` is not valid;
+- `:badarg` if `et` is not finite, `:unknownframe` if a frame name is not known;
 - `:noloadedfiles` if no SPK file is loaded;
 - `:spkinsuffdata` if the loaded SPK files hold no chain between `targ` and `obs` at
   the epoch needed: a body is in no file, or the epoch is outside its segments;
@@ -455,14 +465,18 @@ See also [`spkpos`](@ref), [`spkgeo`](@ref), [`spkder`](@ref), [`furnsh`](@ref).
 
 - [NAIF documentation of `spkezr_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/spkezr_c.html)
 """
-spkezr(
-    ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString,
-    obs::NameOrID
-) = spkezr(ks, targ, et, ref, Aberration(abcorr), obs)
+function spkezr(
+        ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString,
+        obs::NameOrID
+    )
+    _spk_chkfstr("spkezr", targ, ref, abcorr, obs)
+    t, o = body_code(ks, targ), body_code(ks, obs)
+    return _spkezr(ks, t, et, ref, Aberration(abcorr), o)
+end
 spkezr(
     ctx::SpiceContext, targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString,
     obs::NameOrID
-) = spkezr(kernelset(ctx), targ, et, ref, Aberration(abcorr), obs)
+) = spkezr(kernelset(ctx), targ, et, ref, abcorr, obs)
 spkezr(targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString, obs::NameOrID) =
     spkezr(default_context(), targ, et, ref, abcorr, obs)
 
@@ -475,7 +489,8 @@ one-way light time, as
 
 `pos` is an `SVector{3}` in km and `lt` is in seconds. The arguments and the errors
 are those of [`spkezr`](@ref), except that an `abcorr` that is not valid throws
-`SpiceError(:spkinvalidoption)`, as in CSPICE.
+`SpiceError(:spkinvalidoption)`, as in CSPICE, after the checks of `et`, of `ref` and
+of the SPK data of `obs` at `et`.
 
 As in CSPICE, the `CN` corrections make three light-time iterations here;
 [`spkezr`](@ref) makes up to five, with the convergence test of [`spkltc`](@ref). The
@@ -494,13 +509,41 @@ See also [`spkezr`](@ref), [`spkder`](@ref).
 
 - [NAIF documentation of `spkpos_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/spkpos_c.html)
 """
-spkpos(
-    ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString,
-    obs::NameOrID
-) = spkpos(ks, targ, et, ref, _spk_abcorr(abcorr), obs)
+function spkpos(
+        ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString,
+        obs::NameOrID
+    )
+    _spk_chkfstr("spkpos", targ, ref, abcorr, obs)
+    t, o = body_code(ks, targ), body_code(ks, obs)
+    f = _abcorr_fast(abcorr)
+    corr = f == 0xff ? _spkpos_abcorr(ks, et, ref, abcorr, o) : _aberration(f)
+    return _spkpos(ks, t, et, ref, corr, o)
+end
 spkpos(
     ctx::SpiceContext, targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString,
     obs::NameOrID
-) = spkpos(kernelset(ctx), targ, et, ref, _spk_abcorr(abcorr), obs)
+) = spkpos(kernelset(ctx), targ, et, ref, abcorr, obs)
+
+"""
+    _spkpos_abcorr(ks, et, ref, abcorr, o) -> Aberration
+
+Return the correction `abcorr` of `spkpos` that is not one of the nine common
+spellings. A value that is not valid throws `SpiceError(:spkinvalidoption)` after the
+check of `et` and the checks that `spkezp_` makes before `spkapo_` rejects the value:
+the frame `ref`, then the SPK data of the observer `o` at `et`.
+"""
+@noinline function _spkpos_abcorr(ks::KernelSet, et::Real, ref::NameOrID, abcorr::AbstractString, o::Int32)
+    flags = try
+        Aberration(abcorr).flags
+    catch e
+        (e isa SpiceError && e.kind === :invalidoption) || rethrow()
+        0xff
+    end
+    flags == 0xff || return _aberration(flags)
+    e = check_epoch(et)
+    frame_id(ks, ref)
+    spk_jet(ks, o, primal(e), Int32(1), Int32(0), Val(0))
+    return _spk_abcorr(abcorr)
+end
 spkpos(targ::NameOrID, et::Real, ref::NameOrID, abcorr::AbstractString, obs::NameOrID) =
     spkpos(default_context(), targ, et, ref, abcorr, obs)

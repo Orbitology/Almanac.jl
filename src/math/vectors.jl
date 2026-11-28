@@ -1490,7 +1490,7 @@ end
 
 Return `true` if every element of the vector `v` of any length is zero, as
 `vzerog_c`
-of CSPICE.
+of CSPICE. A vector without elements is not the zero vector, and gives `false`.
 
 See also [`vzero`](@ref).
 
@@ -1498,7 +1498,7 @@ See also [`vzero`](@ref).
 
 - [NAIF documentation of `vzerog_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/vzerog_c.html)
 """
-vzerog(v::AbstractVector) = all(x -> primal(x) == 0.0, v)
+vzerog(v::AbstractVector) = !isempty(v) && all(x -> primal(x) == 0.0, v)
 
 """
     vtmvg(v1, matrix, v2)

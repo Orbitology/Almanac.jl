@@ -173,27 +173,61 @@ function _dyn_degrees(units::AbstractString)
 end
 
 """
-    _dyn_abcorr(s, constant::Bool) -> Aberration
+    _DynCorrError(msg)
 
-Return the correction of a vector definition. For an observer-target vector the
-nine values of `spkezr`; another value throws `SpiceError(:spkinvalidoption)`, as
-`zzvalcor_` in `zzdynrot_` (`_ck_frame_jet` gives the kind of `zzdynfrm_`). For a
-constant vector also `S` and `XS`, and a value with both light time and stellar
-aberration throws `SpiceError(:invalidoption)`, as `zzdynfrm_` does.
+The error of a position or near-point vector whose aberration correction is not one of
+the nine values of `spkezr`. CSPICE checks that correction where it computes the vector,
+so the kind depends on the computation: SPICE(SPKINVALIDOPTION) from `zzspkpa0_` in a
+rotation (`zzdynrot_`), SPICE(INVALIDOPTION) from `zzvalcor_` in a state transformation
+(`zzdynfrm_`).
 """
-function _dyn_abcorr(s::AbstractString, constant::Bool)
-    constant || return _spk_abcorr(s)
-    u = _squeeze(s)
-    u == "S" && return _aberration(_AB_S)
-    u == "XS" && return _aberration(_AB_S | _AB_X)
-    c = _spk_abcorr(s)
-    c.stellar && throw(
+struct _DynCorrError <: Exception
+    msg::String
+end
+
+"""
+    _dyn_abcorr(s, kind) -> Aberration
+
+Return the aberration correction `s` of an observer-target vector of `kind` 1
+(position), 2 (velocity) or 3 (near point). `s` is cut to its first five bytes, the
+length of the string in `zzdynrot_` and `zzdynfrm_`. A value other than the nine of
+`spkezr` throws `SpiceError(:invalidoption)` for a velocity, which CSPICE checks with
+`zzvalcor_` in both routines, and `_DynCorrError` for the other two kinds.
+"""
+function _dyn_abcorr(s::AbstractString, kind::Integer)
+    try
+        return Aberration(_cut_bytes(s, 5))
+    catch e
+        (e isa SpiceError && e.kind === :invalidoption && kind != 2) || rethrow()
+        throw(_DynCorrError(e.msg))
+    end
+end
+
+"""
+    _dyn_constcorr(s) -> (Aberration, relativistic::Bool)
+
+Return the aberration correction `s` of a constant vector, as `zzprscor_` parses it: the
+nine values of `spkezr`, `S`, `XS`, and `RL`, `XRL`, which give `LT`, `XLT` with
+`relativistic` true. `s` is cut to its first five bytes, as in `zzdynrot_`. Throws
+`SpiceError(:invalidoption)` for another value and for a value with both light time and
+stellar aberration (`LT+S`, `RL+S`, ...), as `zzdynrot_` and `zzdynfrm_` do.
+"""
+function _dyn_constcorr(s::AbstractString)
+    u = _squeeze(_cut_bytes(s, 5))
+    rel = u in ("RL", "RL+S", "XRL", "XRL+S")
+    flags = u == "S" ? _AB_S : u == "XS" ? (_AB_S | _AB_X) :
+        _abcorr_flags(_abcode(rel ? replace(u, "RL" => "LT") : u))
+    flags == 0xff && throw(
+        SpiceError(:invalidoption, "aberration correction '$s' of a constant vector is not recognized")
+    )
+    c = _aberration(flags)
+    c.uselt && c.stellar && throw(
         SpiceError(
             :invalidoption, "aberration correction '$s' of a " *
                 "constant vector: light time and stellar aberration are mutually exclusive"
         )
     )
-    return c
+    return c, rel
 end
 
 "Class and center of frame `id`; throws `SpiceError(:framedatanotfound)` if the frame is unknown."
@@ -212,8 +246,10 @@ end
     _dyn_parse_vector(ks, fd, prefix) -> DynVector
 
 Return the vector definition `FRAME_<id>_<prefix>*` (`prefix` is `PRI_` or `SEC_`)
-of the two-vector frame `fd`, with the checks of `zzdynfrm_` in its order. Throws the
-`SpiceError` of the first check that fails.
+of the two-vector frame `fd`, with the checks of `zzdynrot_` and `zzdynfrm_` in their
+order: the correction of an observer-target vector is checked where CSPICE first uses
+it, after the other items of the vector. Throws the `SpiceError` of the first check
+that fails, or `_DynCorrError`.
 """
 function _dyn_parse_vector(ks::KernelSet, fd::FrameDef, prefix::AbstractString)
     pool, id, name = ks.pool, fd.id, fd.name
@@ -232,19 +268,20 @@ function _dyn_parse_vector(ks::KernelSet, fd::FrameDef, prefix::AbstractString)
     if vdef == "OBSERVER_TARGET_POSITION"
         targ = _dyn_bodyid(ks, id, name, prefix * "TARGET")
         obs = _dyn_bodyid(ks, id, name, prefix * "OBSERVER")
-        corr = _dyn_abcorr(_dyn_char(pool, id, name, prefix * "ABCORR"), false)
+        corr = _dyn_abcorr(_dyn_char(pool, id, name, prefix * "ABCORR"), 1)
         return DynVector(1, axis, negate, corr.flags, targ, obs, 1, 1, 0, zero3)
     elseif vdef == "OBSERVER_TARGET_VELOCITY"
         targ = _dyn_bodyid(ks, id, name, prefix * "TARGET")
         obs = _dyn_bodyid(ks, id, name, prefix * "OBSERVER")
-        corr = _dyn_abcorr(_dyn_char(pool, id, name, prefix * "ABCORR"), false)
+        cs = _dyn_char(pool, id, name, prefix * "ABCORR")
         frid = _dyn_frameid(ks, id, name, prefix * "FRAME")
+        corr = _dyn_abcorr(cs, 2)
         class, center = _dyn_frameinfo(ks, frid, name)
         return DynVector(2, axis, negate, corr.flags, targ, obs, frid, class, center, zero3)
     elseif vdef == "TARGET_NEAR_POINT"
         targ = _dyn_bodyid(ks, id, name, prefix * "TARGET")
         obs = _dyn_bodyid(ks, id, name, prefix * "OBSERVER")
-        corr = _dyn_abcorr(_dyn_char(pool, id, name, prefix * "ABCORR"), false)
+        cs = _dyn_char(pool, id, name, prefix * "ABCORR")
         fix = cidfrm(ks, targ)
         fix === nothing && throw(
             SpiceError(
@@ -266,6 +303,7 @@ function _dyn_parse_vector(ks::KernelSet, fd::FrameDef, prefix::AbstractString)
                 "an axis of body $targ is negative or zero: BODY$(targ)_RADII = $radii"
             )
         )
+        corr = _dyn_abcorr(cs, 3)
         class, center = _dyn_frameinfo(ks, Int32(fix[1]), name)
         return DynVector(
             3, axis, negate, corr.flags, targ, obs, fix[1], class, center,
@@ -274,13 +312,24 @@ function _dyn_parse_vector(ks::KernelSet, fd::FrameDef, prefix::AbstractString)
     elseif vdef == "CONSTANT"
         frid = _dyn_frameid(ks, id, name, prefix * "FRAME")
         cs = _dyn_optvalue(pool, id, name, prefix * "ABCORR", String)
-        corr = _dyn_abcorr(cs === nothing ? "NONE" : cs, true)
+        corr, rel = _dyn_constcorr(cs === nothing ? "NONE" : cs)
         class, center, obs = Int32(1), Int32(0), Int32(0)
-        if !corr.geometric
+        if corr.uselt
             class, center = _dyn_frameinfo(ks, frid, name)
-            if corr.stellar || class != 1
+            if class != 1
                 obs = _dyn_bodyid(ks, id, name, prefix * "OBSERVER")
+                # The light time to the center of the frame is that of `spkpos`, which
+                # rejects a relativistic correction; in an inertial frame it is not used.
+                rel && throw(
+                    SpiceError(
+                        :spkinvalidoption, "aberration correction '$cs' of a constant " *
+                            "vector in frame $frid, which is not inertial: relativistic " *
+                            "corrections are not supported"
+                    )
+                )
             end
+        elseif corr.stellar
+            obs = _dyn_bodyid(ks, id, name, prefix * "OBSERVER")
         end
         spec = _squeeze(_dyn_char(pool, id, name, prefix * "SPEC"))
         if spec == "RECTANGULAR"
@@ -325,16 +374,21 @@ function _dyn_parse(ks::KernelSet, fd::FrameDef)
     try
         return _dyn_parse_checked(ks, fd)
     catch err
-        err isa SpiceError || rethrow()
+        if err isa _DynCorrError
+            kind, state = :spkinvalidoption, :invalidoption
+        else
+            err isa SpiceError || rethrow()
+            kind = state = err.kind
+        end
         return DynFrame(
             fd.id, fd.name, fd.center, 0, 0, false, 0.0, false, false,
             _DYN_NOVECTOR, _DYN_NOVECTOR, 0.0, (Int32(0), Int32(0), Int32(0)), 0.0, 1.0,
-            Float64[], Float64[], Float64[], Int32[], Int32[], err.kind, err.msg
+            Float64[], Float64[], Float64[], Int32[], Int32[], kind, state, err.msg
         )
     end
 end
 
-"Like `_dyn_parse`, but throw the `SpiceError` of the first check that fails."
+"Like `_dyn_parse`, but throw the error of the first check that fails."
 function _dyn_parse_checked(ks::KernelSet, fd::FrameDef)
     pool, id, name = ks.pool, fd.id, fd.name
     base = _dyn_frameid(ks, id, name, "RELATIVE")
@@ -463,7 +517,7 @@ function _dyn_parse_checked(ks::KernelSet, fd::FrameDef)
     return DynFrame(
         id, name, fd.center, base, fam, frozen, frozen ? freeze : 0.0, inertial,
         1 <= base <= N_INERTIAL_FRAMES, v1, v2, minsep, axes, epoch, scale, coef[1],
-        coef[2], coef[3], from, to, :none, ""
+        coef[2], coef[3], from, to, :none, :none, ""
     )
 end
 
@@ -1392,6 +1446,10 @@ end
 "Return the matrix `x` with each element in the number type `S` (`_dyn_lift`)."
 @inline _dyn_liftmat(::Type{S}, x::Mat3) where {S} = Mat3{S}(ntuple(i -> _dyn_lift(S, x[i]), Val(9)))
 
+"The kind of the error of the definition `def` that is not valid: that of `zzdynrot_` for a rotation, of `zzdynfrm_` for a state transformation."
+_dyn_errkind(::_CKExact, def::DynFrame) = def.errkind
+_dyn_errkind(::_CKState, def::DynFrame) = def.errkind_state
+
 """
     _dyn_frame_step(mode, ks, fd, et) -> (base::Int32, rot)
 
@@ -1405,7 +1463,7 @@ for the frames of the other classes.
 @noinline function _dyn_frame_step(mode, ks::KernelSet, fd::FrameDef, et::T) where {T <: Real}
     def = get(ks.dyn, fd.id, nothing)
     def === nothing && _dyn_throw_missing(fd.id)
-    def.errkind === :none || _throw_spice(def.errkind, def.errmsg)
+    def.errkind === :none || _throw_spice(_dyn_errkind(mode, def), def.errmsg)
     inner = ks.inner
     inner === nothing && _dyn_throw_depth(def)
     S = _ck_numtype(mode, T)

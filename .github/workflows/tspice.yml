@@ -46,12 +46,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # the generator of the wrappers and the C logger, under a second
+      # the generator of the wrappers, the C logger, the check of the math functions and
+      # the digest of a recording, in a few seconds
       - name: Unit tests of the recorder
         shell: bash
         run: |
           python3 -B -m unittest discover -s test/tspice/cspice -p 'test_*.py'
           bash test/tspice/cspice/test_log.sh
+          bash test/tspice/cspice/test_check_math.sh
+          bash test/tspice/test_digest.sh
 
       # TSPICE_DIR holds the archive, the build, the recording and the results; the key of
       # the archive's cache is its SHA-256, which build_cspice.sh checks

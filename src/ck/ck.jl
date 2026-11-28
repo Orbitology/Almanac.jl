@@ -438,6 +438,14 @@ end
     )
 )
 
+"Norm of `(s1, s2, s3, s4)` as `vnormg_`: the components are divided by the largest magnitude before they are squared."
+@inline function _ck_vnormg(s1::T, s2::T, s3::T, s4::T) where {T <: Real}
+    smax = max(abs(primal(s1)), abs(primal(s2)), abs(primal(s3)), abs(primal(s4)))
+    smax == 0.0 && return zero(T)
+    a1, a2, a3, a4 = s1 / smax, s2 / smax, s3 / smax, s4 / smax
+    return smax * sqrt(a1 * a1 + a2 * a2 + a3 * a3 + a4 * a4)
+end
+
 """
     _ck_qav(q, mags, ds, rate) -> Vec3
 
@@ -446,11 +454,14 @@ Angular velocity (radians per second) from the unit quaternion `q = s / mags`, w
 `cke05_` computes it with `qdq2av_`; `rate` is the nominal seconds per tick.
 """
 @inline function _ck_qav(q::NTuple{4, T}, mags::T, ds::NTuple{4, T}, rate::Float64) where {T <: Real}
+    r = 1.0 / mags
     qds = (q[1] * ds[1] + q[2] * ds[2] + q[3] * ds[3] + q[4] * ds[4]) / mags
-    dq = ntuple(i -> ds[i] / mags - qds * q[i], Val(4))
-    # qtemp = conj(q) * dq; the angular velocity is -2 times its vector part.
-    s = q[1]
-    v = Vec3{T}(-q[2], -q[3], -q[4])
+    dq = ntuple(i -> r * ds[i] - qds * q[i], Val(4))
+    # `qdq2av_` normalizes q again (`vhatg_`); qtemp = conj(q) * dq, and the angular
+    # velocity is -2 times its vector part.
+    m = _ck_vnormg(q[1], q[2], q[3], q[4])
+    s = q[1] / m
+    v = Vec3{T}(-(q[2] / m), -(q[3] / m), -(q[4] / m))
     dv = Vec3{T}(dq[2], dq[3], dq[4])
     vec = s * dv + dq[1] * v + cross(v, dv)
     return (-2.0 / rate) * vec
@@ -503,9 +514,18 @@ in the number type of `t` and the quaternion is normalized. `av` is zero unless
         s3, d3 = _ck_hermite!(w, dw, data, xb, pb + 3, 4, packsz, n, rate, t)
         s4, d4 = _ck_hermite!(w, dw, data, xb, pb + 4, 4, packsz, n, rate, t)
     end
-    mags = sqrt(s1 * s1 + s2 * s2 + s3 * s3 + s4 * s4)
-    primal(mags) == 0.0 && _ck_zeroquat()
-    q = (s1 / mags, s2 / mags, s3 / mags, s4 / mags)
+    mags = _ck_vnormg(s1, s2, s3, s4)
+    if subtyp == 3
+        # `vhatg_`: a division by the norm, and the zero quaternion for a norm of zero,
+        # which `q2m_` turns into the identity matrix
+        z = zero(s1)
+        q = primal(mags) == 0.0 ? (z, z, z, z) : (s1 / mags, s2 / mags, s3 / mags, s4 / mags)
+    else
+        # `vsclg_` by the reciprocal of the norm, which must not be zero
+        primal(mags) == 0.0 && _ck_zeroquat()
+        r = 1.0 / mags
+        q = (r * s1, r * s2, r * s3, r * s4)
+    end
     cmat = _m_q2m(q[1], q[2], q[3], q[4], true)
     av = zero(Vec3{T})
     if needav

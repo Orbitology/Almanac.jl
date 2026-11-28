@@ -54,7 +54,9 @@ reference and copies nothing.
   number of degrees in one unit of the angles.
 - `from`, `to`: product family, the frame IDs of `FROM_FRAMES` and `TO_FRAMES`.
 - `errkind`, `errmsg`: `:none`, or the `SpiceError` that an evaluation of the frame
-  throws because the definition is not valid (CSPICE reports it at that time).
+  throws because the definition is not valid (CSPICE reports it at that time);
+  `errkind_state` is the kind that a state transformation throws, which differs from
+  `errkind` for a correction of a position or near-point vector (`_DynCorrError`).
 
 With `errkind === :none`, `family` is in `1:6` and the fields of the family are set.
 """
@@ -80,6 +82,7 @@ mutable struct DynFrame
     const from::Vector{Int32}
     const to::Vector{Int32}
     const errkind::Symbol
+    const errkind_state::Symbol
     const errmsg::String
 end
 

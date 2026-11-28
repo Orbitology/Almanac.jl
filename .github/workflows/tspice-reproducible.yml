@@ -1,0 +1,154 @@
+# Reproducibility of the tspice recording: record the calls of NAIF's test suite
+# (test/tspice/record.sh) twice, on the runner and in a Fedora container, with another
+# gcc and another version of the C library, and compare the digests of the two
+# recordings (test/tspice/digest_recording.py), which leave out the outputs that CSPICE
+# leaves partly written in a call that fails. The recorder takes its transcendental
+# functions from CORE-MATH and starts each automatic variable at zero, so that the rest
+# of a recording depends only on the sources of the harness and of NAIF's archive; a
+# difference here is a property of the machine that enters the logs. See
+# test/tspice/README.md.
+#
+# The two recordings run in parallel, in 15 to 40 minutes each, and each job keeps only
+# its digest as an artifact. NAIF's archive comes from the cache of the tspice workflow
+# (a miss downloads it). It runs on a pull request that changes the recorder, and by
+# hand. A newer push cancels the run of an older one.
+name: tspice-reproducible
+
+on:
+  pull_request:
+    paths:
+      - 'test/tspice/cspice/**'
+      - 'test/tspice/record.sh'
+      - 'test/tspice/digest_recording.py'
+      - 'test/tspice/routines.txt'
+      - '.github/workflows/tspice-reproducible.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ubuntu:
+    name: record (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      # the key of the archive's cache is its SHA-256, which build_cspice.sh checks
+      - name: Paths
+        run: |
+          echo "TSPICE_DIR=$RUNNER_TEMP/tspice" >> "$GITHUB_ENV"
+          echo "TSPICE_SHA=$(grep -oP '^sha=\K[0-9a-f]{64}' test/tspice/cspice/build_cspice.sh)" >> "$GITHUB_ENV"
+
+      # the path and the key of the tspice workflow
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/tspice/tspice_c.tar
+          key: tspice_c-${{ env.TSPICE_SHA }}
+
+      - name: Record
+        env:
+          JOBS: 4
+        run: bash test/tspice/record.sh "$TSPICE_DIR"
+
+      - name: Digest
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p digest
+          python3 -I test/tspice/digest_recording.py "$TSPICE_DIR" > digest/digest.tsv
+          wc -l < digest/digest.tsv
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: digest-ubuntu
+          path: digest/digest.tsv
+          retention-days: 30
+
+  fedora:
+    name: record (Fedora 45 container)
+    runs-on: ubuntu-latest
+    container: fedora:45
+    timeout-minutes: 120
+    steps:
+      # what record.sh needs besides the base image (cmp: the copies of the snapshots),
+      # and tar and zstd for the cache
+      - name: Packages
+        run: dnf install -y gcc binutils python3 diffutils curl gzip tar zstd findutils
+
+      - uses: actions/checkout@v4
+
+      - name: Paths
+        run: |
+          echo "TSPICE_DIR=$RUNNER_TEMP/tspice" >> "$GITHUB_ENV"
+          echo "TSPICE_SHA=$(grep -oP '^sha=\K[0-9a-f]{64}' test/tspice/cspice/build_cspice.sh)" >> "$GITHUB_ENV"
+
+      # the path as the runner gives it (runner.temp, outside the container), on which
+      # the version of the cache entry depends; the entry holds the path relative to the
+      # workspace, so the archive lands in $RUNNER_TEMP of the container
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/tspice/tspice_c.tar
+          key: tspice_c-${{ env.TSPICE_SHA }}
+
+      - name: Record
+        env:
+          JOBS: 4
+        run: |
+          gcc --version | sed -n 1p
+          ldd --version | sed -n 1p
+          bash test/tspice/record.sh "$TSPICE_DIR"
+
+      - name: Digest
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p digest
+          python3 -I test/tspice/digest_recording.py "$TSPICE_DIR" > digest/digest.tsv
+          wc -l < digest/digest.tsv
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: digest-fedora
+          path: digest/digest.tsv
+          retention-days: 30
+
+  compare:
+    name: compare the recordings
+    needs: [ubuntu, fedora]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: digest-ubuntu
+          path: ubuntu
+      - uses: actions/download-artifact@v4
+        with:
+          name: digest-fedora
+          path: fedora
+
+      - name: Compare
+        run: |
+          if diff ubuntu/digest.tsv fedora/digest.tsv > diff.txt; then
+            echo "the two recordings are the same ($(wc -l < ubuntu/digest.tsv) files)" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            n=$(grep -c '^[<>]' diff.txt || true)
+            {
+              echo "the two recordings differ ($n lines of the digests, < ubuntu, > fedora):"
+              echo '```'
+              head -200 diff.txt
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

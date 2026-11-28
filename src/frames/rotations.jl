@@ -206,16 +206,25 @@ end
     return acc
 end
 
-"""
-    _text_pck_rotation(br, body, et::T) -> Mat3{T}
+"Rotation from the inertial frame `req` to the inertial frame `ref`, as `irfrot_`. Requires `req != ref`."
+@inline _irf_rot(req::Integer, ref::Integer) =
+    req == _J2000_FRAME ? inertial_rotation(ref) :
+    ref == _J2000_FRAME ? transpose(inertial_rotation(req)) :
+    _m_mxmt(inertial_rotation(ref), inertial_rotation(req))
 
-Matrix from J2000 to the body-fixed frame of `body` from the text-PCK constants `br`,
-as `tisbod_` of CSPICE computes it (same order of operations): RA, DEC and W
-polynomials, trigonometric terms, `eul2m(W, pi/2 - DEC, pi/2 + RA, 3, 1, 3)`, then the
-rotation from J2000 to the reference frame of the constants. Throws
+"""
+    _text_pck_rotation(br, body, et::T, req = J2000) -> Mat3{T}
+
+Matrix from the inertial frame `req` to the body-fixed frame of `body` from the
+text-PCK constants `br`, as `tisbod_` of CSPICE computes it (same order of operations):
+RA, DEC and W polynomials, trigonometric terms, `eul2m(W, pi/2 - DEC, pi/2 + RA, 3, 1,
+3)`, then, if the reference frame of the constants is not `req`, the rotation from `req`
+to that frame (`irfrot_`). Throws
 `SpiceError(:insufficientangles)` if an amplitude vector is longer than the angle list.
 """
-function _text_pck_rotation(br::BodyRot, body::Integer, et::T) where {T <: Real}
+function _text_pck_rotation(
+        br::BodyRot, body::Integer, et::T, req::Integer = _J2000_FRAME
+    ) where {T <: Real}
     _bodyrot_check(br, body)
     epoch = et - _SPD * (br.jed_epoch - _JD2000)
     td = epoch / _SPD
@@ -259,33 +268,36 @@ function _text_pck_rotation(br::BodyRot, body::Integer, et::T) where {T <: Real}
     dec *= _RPD
     w = f2c_dmod(w * _RPD, _TWOPI)
     tipm = _eul313(w, _HALFPI - dec, ra + _HALFPI)
-    br.ref == _J2000_FRAME && return tipm
-    return _m_mxm(tipm, inertial_rotation(br.ref))
+    br.ref == req && return tipm
+    return _m_mxm(tipm, _irf_rot(req, br.ref))
 end
 
 "An empty segment list: the binary PCK segments of a body that has none. Never mutated."
 const _NO_SEGMENTS = SegmentList(Segment[])
 
 """
-    _body_state(ks, classid, et::Float64) -> Mat3{Taylor{1,Float64}}
+    _body_state(ks, classid, et::Float64, req = J2000) -> Mat3{Taylor{1,Float64}}
 
 Return the matrix of `_body_rotation` with its time derivative as `tisbod_` gives
 them: from a binary PCK segment if one covers `et` (`_binary_pck_state`), else from the
 text PCK constants (`_text_pck_state`). Throws as `_body_rotation`.
 """
-_body_state(ks::KernelSet, classid::Int32, et::Float64) =
-    _body_state(ks, get(ks.pck, classid, _NO_SEGMENTS), classid, et)
+_body_state(ks::KernelSet, classid::Int32, et::Float64, req::Integer = _J2000_FRAME) =
+    _body_state(ks, get(ks.pck, classid, _NO_SEGMENTS), classid, et, req)
 
 # `segs` are the binary PCK segments of `classid` in `ks`, `_NO_SEGMENTS` for none.
-function _body_state(ks::KernelSet, segs::SegmentList{Segment}, classid::Int32, et::Float64)
+function _body_state(
+        ks::KernelSet, segs::SegmentList{Segment}, classid::Int32, et::Float64,
+        req::Integer = _J2000_FRAME
+    )
     i = find_segment(segs, et)
     if i > 0
         seg = @inbounds segs[i]
-        return _binary_pck_state(ks.daf[seg.file], seg, et)
+        return _binary_pck_state(ks.daf[seg.file], seg, et, req)
     end
     br = get(ks.bodyrot, classid, nothing)
-    br === nothing && return _body_rotation(ks, segs, classid, taylor_var(et, Val(1)))::Mat3{Taylor{1, Float64}}
-    return _text_pck_state(br, classid, et)
+    br === nothing && return _body_rotation(ks, segs, classid, taylor_var(et, Val(1)), req)::Mat3{Taylor{1, Float64}}
+    return _text_pck_state(br, classid, et, req)
 end
 
 "`x^n` for `n >= 0` by the repeated squaring of `pow_di` of the f2c library."
@@ -301,7 +313,7 @@ end
 end
 
 """
-    _text_pck_state(br, body, et::Float64) -> Mat3{Taylor{1,Float64}}
+    _text_pck_state(br, body, et::Float64, req = J2000) -> Mat3{Taylor{1,Float64}}
 
 Return the matrix of `_text_pck_rotation` with its time derivative, with the
 arithmetic of `tisbod_` of CSPICE: the rates of RA, DEC and W from the derivatives of
@@ -312,7 +324,7 @@ otherwise. One exception: the rate of a cubic nutation-precession angle is the t
 one, where `tisbod_` of N0067 divides its cubic term by the seconds per century once
 too often. Throws as `_text_pck_rotation`.
 """
-function _text_pck_state(br::BodyRot, body::Integer, et::Float64)
+function _text_pck_state(br::BodyRot, body::Integer, et::Float64, req::Integer = _J2000_FRAME)
     _bodyrot_check(br, body)
     d = _SPD
     t = _SEC_PER_CENTURY
@@ -378,44 +390,46 @@ function _text_pck_state(br::BodyRot, body::Integer, et::Float64)
     x = eul2xf(SVector(w, _HALFPI - dec, ra + _HALFPI, dw, -ddec, dra), 3, 1, 3)
     r = _eul313(w, _HALFPI - dec, ra + _HALFPI)
     dr = _m_blocks(x)[2]
-    if br.ref != _J2000_FRAME
-        c = inertial_rotation(br.ref)
+    if br.ref != req
+        c = _irf_rot(req, br.ref)
         r, dr = _m_mxm(r, c), _m_mxm(dr, c)
     end
     return map((a, b) -> Taylor((a, b)), r, dr)
 end
 
 """
-    _binary_pck_rotation(data, seg, et::T) -> Mat3{T}
+    _binary_pck_rotation(data, seg, et::T, req = J2000) -> Mat3{T}
 
-Matrix from J2000 to the body frame of the binary PCK segment `seg` at `et`, as
-`pcke02_`, `pcke03_`, `pckmat_` and `tisbod_` give it: 3-1-3 Euler angles of the
-segment (W reduced by whole turns for types 2 and 20), then the rotation
-from J2000 to the reference frame of the segment. Requires `seg.t0 <= primal(et) <= seg.t1`.
+Matrix from the inertial frame `req` to the body frame of the binary PCK segment `seg`
+at `et`, as `pcke02_`, `pcke03_`, `pckmat_` and `tisbod_` give it: 3-1-3 Euler angles of
+the segment (W reduced by whole turns for types 2 and 20), then, if the reference frame
+of the segment is not `req`, the rotation from `req` to that frame. Requires `seg.t0 <= primal(et) <= seg.t1`.
 """
-@inline function _binary_pck_rotation(data::Vector{Float64}, seg::Segment, et::T) where {T <: Real}
+@inline function _binary_pck_rotation(
+        data::Vector{Float64}, seg::Segment, et::T, req::Integer = _J2000_FRAME
+    ) where {T <: Real}
     ang = pck_eval(data, seg, et, Val(0))[1]
     # `pcke02_` and `pcke20_` reduce W with `d_mod`, and `pcke03_` does not; the same
     # arithmetic keeps the value of CSPICE.
     w = seg.dtype == 3 ? ang[3] : f2c_dmod(ang[3], _TWOPI)
     tipm = _eul313(w, ang[2], ang[1])
-    seg.frame == _J2000_FRAME && return tipm
-    return _m_mxm(tipm, inertial_rotation(seg.frame))
+    seg.frame == req && return tipm
+    return _m_mxm(tipm, _irf_rot(req, seg.frame))
 end
 
 """
-    _binary_pck_state(data, seg, et::Float64) -> Mat3{Taylor{1,Float64}}
+    _binary_pck_state(data, seg, et::Float64, req = J2000) -> Mat3{Taylor{1,Float64}}
 
 Return the matrix of `_binary_pck_rotation` with its time derivative, with the
 arithmetic of `pckmat_` and `tisbod_`: the angles and their rates of the segment
 (`chbint_` for type 2, `spke20_` for type 20; W reduced by whole turns as `pcke02_`
 and `pcke20_` do) go to `eul2xf_`, and both blocks are multiplied on the right by the
-rotation from J2000 to the frame of the segment. The derivative of the `Taylor`
+rotation from `req` to the frame of the segment if the two differ. The derivative of the `Taylor`
 evaluation of `_binary_pck_rotation` is the same function, rounded otherwise. Type 3
 takes the derivative from the angular velocity series of the segment (`_pck03_state`),
 which is not the derivative of the `Taylor` evaluation.
 """
-function _binary_pck_state(data::Vector{Float64}, seg::Segment, et::Float64)
+function _binary_pck_state(data::Vector{Float64}, seg::Segment, et::Float64, req::Integer = _J2000_FRAME)
     if seg.dtype == 3
         r, dr = _pck03_state(data, seg, et)
     else
@@ -425,8 +439,8 @@ function _binary_pck_state(data::Vector{Float64}, seg::Segment, et::Float64)
         )
         r, dr = _m_blocks(x)
     end
-    if seg.frame != _J2000_FRAME
-        c = inertial_rotation(seg.frame)
+    if seg.frame != req
+        c = _irf_rot(req, seg.frame)
         r, dr = _m_mxm(r, c), _m_mxm(dr, c)
     end
     return map((a, b) -> Taylor((a, b)), r, dr)
@@ -454,24 +468,25 @@ does; return otherwise.
 end
 
 """
-    _body_rotation(ks, classid, et::T) -> Mat3{T}
+    _body_rotation(ks, classid, et::T, req = J2000) -> Mat3{T}
 
-Matrix from J2000 to the class 2 frame with class ID `classid`: from a binary PCK
+Matrix from the inertial frame `req` to the class 2 frame with class ID `classid`: from a binary PCK
 segment if one covers `primal(et)`, otherwise from the text-PCK constants, as
 `tisbod_` does. Throws `SpiceError(:framedatanotfound)` if neither exists, and
 `SpiceError(:kernelvarnotfound)` if `BODY<id>_PM` exists without a pole angle.
 """
-_body_rotation(ks::KernelSet, classid::Int32, et::Real) =
-    _body_rotation(ks, get(ks.pck, classid, _NO_SEGMENTS), classid, et)
+_body_rotation(ks::KernelSet, classid::Int32, et::Real, req::Integer = _J2000_FRAME) =
+    _body_rotation(ks, get(ks.pck, classid, _NO_SEGMENTS), classid, et, req)
 
 # `segs` are the binary PCK segments of `classid` in `ks`, `_NO_SEGMENTS` for none.
 function _body_rotation(
-        ks::KernelSet, segs::SegmentList{Segment}, classid::Int32, et::T
+        ks::KernelSet, segs::SegmentList{Segment}, classid::Int32, et::T,
+        req::Integer = _J2000_FRAME
     ) where {T <: Real}
     i = find_segment(segs, primal(et))
     if i > 0
         seg = @inbounds segs[i]
-        return _binary_pck_rotation(ks.daf[seg.file], seg, et)::Mat3{T}
+        return _binary_pck_rotation(ks.daf[seg.file], seg, et, req)::Mat3{T}
     end
     br = get(ks.bodyrot, classid, nothing)
     br === nothing && _missing_pole(ks, classid)
@@ -483,7 +498,7 @@ function _body_rotation(
                 "covers the epoch and no text PCK constants are loaded)"
         )
     )
-    return _text_pck_rotation(br, classid, et)::Mat3{T}
+    return _text_pck_rotation(br, classid, et, req)::Mat3{T}
 end
 
 # --- fixed-offset (TK) frames ---------------------------------------------------------

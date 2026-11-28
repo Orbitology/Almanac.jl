@@ -462,12 +462,11 @@ constant rotation from `ref` to J2000.
 function _tis_jet(ks::KernelSet, ref::NameOrID, body::Integer, et::Real)
     req = _irf_id(ref)
     t = check_epoch(et)
-    m = t isa Float64 ? _body_state(ks, Int32(body), t) :
-        _body_rotation(ks, Int32(body), taylor_var(t, Val(1)))
-    r, dr = map(x -> x.v, m), map(x -> x.d[1], m)
-    req == _J2000_FRAME && return r, dr
-    c = transpose(inertial_rotation(req))
-    return _m_mxm(r, c), _m_mxm(dr, c)
+    # `tisbod_`: the matrix of the native frame of the PCK data, times `irfrot_` from
+    # `req` to that frame if the two differ
+    m = t isa Float64 ? _body_state(ks, Int32(body), t, req) :
+        _body_rotation(ks, Int32(body), taylor_var(t, Val(1)), req)
+    return map(x -> x.v, m), map(x -> x.d[1], m)
 end
 
 """

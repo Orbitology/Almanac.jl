@@ -8,7 +8,9 @@ aberration corrections, states and light times agree bit for bit in inertial fra
 to 4e-15 relative in body-fixed frames, and a kernel written by Almanac.jl holds the same
 data, word for word, as the one that CSPICE writes from the same input. NAIF's test suite
 of N0067 (tspice_c, the SPICELIB tests translated to C) is also replayed against
-Almanac.jl, and the replay fails on any difference outside its list of known ones.
+Almanac.jl with the correctly rounded functions of CORE-MATH on both sides, and the
+replay fails on any difference from SPICELIB in the last bit that is not in its list of
+known differences and that CSPICE does not share.
 
 ## Known limits of accuracy
 
@@ -17,9 +19,10 @@ calls the C library of the platform; for about 3 % of arguments, `sin` and `cos`
 in the last bit, and so can a result. The difference grows where a computation carries
 it over a long span, as in a type 5 SPK segment propagated over six years (3e-8 km at
 2e8 km from the Sun), and where the geometry amplifies it, as at a limb point or a
-grazing intercept on a DSK shape: up to 2.5e-3 km in NAIF's test suite, where a change
-of the epoch by one unit in the last place moves the limb point of CSPICE itself by
-3e-3 km. With the `sin` and `cos` of glibc, these results equal those of CSPICE.
+grazing intercept on a DSK shape: up to 2.5e-3 km in NAIF's test suite replayed with the
+functions of Julia, at a limb point that a change of the epoch by one unit in the last
+place moves by 3e-3 km in CSPICE itself. With the functions of CORE-MATH on both sides,
+these results are SPICELIB's to the last bit.
 
 Three limits come from the size of a number or from the method, and hold in CSPICE as
 well:
@@ -39,8 +42,8 @@ each case.
 
 ## Other checks
 
-- **Errors:** an input that CSPICE refuses gives the kind of the CSPICE error, and checks
-  that CSPICE does not make give kinds of Almanac.jl, such as `:badarg`.
+- **Errors:** an input that CSPICE refuses gives the kind of the CSPICE error, and a check
+  that CSPICE does not make throws an error kind of Almanac.jl, such as `:badarg`.
 - **Derivatives:** each order of a jet is compared with automatic differentiation of the
   order below, and every AD backend with ForwardDiff.
 - **Threads:** queries from many threads, while kernels are loaded and unloaded, give the

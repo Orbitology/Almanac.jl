@@ -8,10 +8,12 @@
 # with the copies of the working directory that the log names. Each family is replayed in a new
 # `SpiceContext`, call by call, in the order of the log. A call is:
 #
-# - `match`: Almanac gives the outputs of SPICELIB within `RTOL`, or throws the
-#   `SpiceError` whose kind is the short message that SPICELIB signaled;
-# - `cspice`: Almanac differs from SPICELIB, and so does CSPICE, which Almanac agrees with
-#   (TSPICE_ORACLE=1);
+# - `match`: Almanac gives the outputs of SPICELIB within `RTOL` and `ATOL` (zero with
+#   TSPICE_MATH=core, the default: equal to the last bit), or throws the `SpiceError`
+#   whose kind is the short message that SPICELIB signaled;
+# - `cspice`: Almanac differs from SPICELIB, and so does CSPICE, which Almanac agrees with:
+#   to the last bit at tolerance zero (`EXACT`), within `NEAR` otherwise (TSPICE_ORACLE=1).
+#   run.jl does not count such a call as a mismatch;
 # - `near`: the outputs differ by more than `RTOL` and less than `NEAR` relative (to the
 #   largest magnitude in each group of three numbers);
 # - `spread`: the outputs differ by more, SPICELIB and CSPICE differ from each other, and
@@ -28,19 +30,48 @@
 # The output is a table per routine and the first mismatches of each kind, and
 # `LOGDIR/replay.tsv` with one line per mismatch.
 
+# The recording and the oracle take sin, cos, exp, ... from CORE-MATH, whose results are
+# correctly rounded. With TSPICE_MATH=core (the default) Almanac takes them from
+# CORE-MATH too (crmath.jl, with the library TSPICE_CRMATH_LIB, before Almanac is
+# loaded), and `RTOL` and `ATOL` are zero, so that a change of the last bit of an output
+# of Almanac is a mismatch. TSPICE_MATH=julia keeps Julia's functions, which differ from
+# CORE-MATH in the last bit for some arguments, and compares within 1e-12 relative and
+# 1e-14 absolute. TSPICE_RTOL and TSPICE_ATOL replace either default.
+const MATH = get(ENV, "TSPICE_MATH", "core")
+MATH in ("core", "julia") || error("TSPICE_MATH=$MATH: give core or julia")
+MATH == "core" && include(joinpath(@__DIR__, "crmath.jl"))
+
 using Almanac, Printf, LinearAlgebra, StaticArrays
+
+# the code of Almanac, compiled before the methods of crmath.jl existed, calls them too
+MATH == "core" && (
+    Almanac.rotate(CRMATH_X, 3)[1, 2] == sin(CRMATH_X) ||
+        error("Almanac.rotate($CRMATH_X, 3) does not take its sine from CORE-MATH (crmath.jl)")
+)
 
 # With TSPICE_ORACLE=1 each mismatch is also computed by CSPICE (through SPICE.jl, with
 # the loads of the family mirrored into it): a call where Almanac agrees with CSPICE and
 # both differ from SPICELIB, the Fortran library that tspice ran, is counted as
 # `cspice` instead (CSPICE is the reference of Almanac, and some of its routines are
-# not translations of SPICELIB's: vperp_c, the time defaults).
+# not translations of SPICELIB's: vperp_c, the time defaults). The oracle is the CSPICE
+# of the archive that cspice/build_cspice.sh builds with the flags and the math of the
+# recording program; SPICE.jl loads it in place of the library of CSPICE_jll in the
+# environment that oracle_env (oracle.jl) gives, with TSPICE_ORACLE_LIB its path.
 const ORACLE = get(ENV, "TSPICE_ORACLE", "0") == "1"
 # SPICE.jl is loaded also without the oracle: the wrappers below name its library
 import SPICE
+# another CSPICE would make the class of some calls depend on the C library of the machine
+if ORACLE
+    let lib = get(ENV, "TSPICE_ORACLE_LIB", ""), loaded = SPICE.CSPICE_jll.libcspice_path
+        isfile(lib) && realpath(loaded) == realpath(lib) ||
+            error("TSPICE_ORACLE=1, but SPICE.jl loads $loaded and not the oracle TSPICE_ORACLE_LIB=\"$lib\": give replay.jl the environment of oracle_env in oracle.jl, as run.jl does")
+    end
+end
 
-const RTOL = parse(Float64, get(ENV, "TSPICE_RTOL", "1e-12"))
-const ATOL = parse(Float64, get(ENV, "TSPICE_ATOL", "1e-14"))
+const RTOL = parse(Float64, get(ENV, "TSPICE_RTOL", MATH == "core" ? "0" : "1e-12"))
+const ATOL = parse(Float64, get(ENV, "TSPICE_ATOL", MATH == "core" ? "0" : "1e-14"))
+"The comparison at tolerance zero: GF results and the agreement with CSPICE are then exact too."
+const EXACT = RTOL == 0 && ATOL == 0
 const NEAR = parse(Float64, get(ENV, "TSPICE_NEAR", "1e-9"))
 
 "Marks an argument whose values the log does not hold."
@@ -1390,10 +1421,15 @@ function cspice_pltvol(vrtces, plates)
 end
 CSPICE_EXTRA["pltar"] = cspice_pltar
 CSPICE_EXTRA["pltvol"] = cspice_pltvol
-# swpool has a count of names; the watchers it sets decide what cvpool returns, so it
-# is mirrored into CSPICE as the loads are
-cspice_swpool(agent, nnames, names) =
-    SPICE.swpool(agent, String.(vcat(names))[1:max(nnames, 0)])
+# swpool has a count of names. It is mirrored into CSPICE as the loads are, so that the
+# watchers of a family fill the tables of CSPICE as they fill those of SPICELIB, and a
+# call that SPICELIB refuses for a full table is refused by CSPICE too. Its agents are
+# kept, so that cspice_reset deletes their watchers.
+const ORACLE_AGENTS = Set{String}()
+function cspice_swpool(agent, nnames, names)
+    push!(ORACLE_AGENTS, String(agent))
+    return SPICE.swpool(agent, String.(vcat(names))[1:max(nnames, 0)])
+end
 CSPICE_EXTRA["swpool"] = cspice_swpool
 push!(STATEFUL, "swpool")
 # the azimuth and elevation conversions of SPICE.jl take azccw and elplsz as keywords
@@ -1417,14 +1453,63 @@ push!(STATEFUL, "boddef")
 "The answer of `cspice_call` for a call that CSPICE is not asked (`nothing` is the result of a wrapper that found nothing)."
 struct NoOracle end
 
+"""
+SPICELIB errors that the size of an array or a string argument causes. The replay does
+not give CSPICE these sizes (SPICE.jl takes none, or sizes of its own), so CSPICE cannot
+make the error, and it is not asked.
+"""
+const SIZE_ERRORS = Set(["SPICE(BADARRAYSIZE)", "SPICE(ARRAYTOOSMALL)", "SPICE(SCLKTRUNCATED)"])
+
+"""
+Routines whose answer CSPICE cannot give for the call of the test: CVPOOL reports the
+updates of watchers, which depend on the calls of CVPOOL that matched, which CSPICE does
+not see, and on DWPOOL, which the recording does not log.
+"""
+const NO_ORACLE_STATE = Set(["cvpool"])
+
+"""
+The routines that SPICE.jl deprecates (`@deprecate vnorm(v1) LinearAlgebra.norm(v1)`,
+`@deprecate xpose transpose`, ...): its function of such a name is Julia code or a
+function of another name, not the CSPICE routine.
+"""
+const SPICEJL_DEPRECATED = let names = Set{String}()
+    for f in readdir(joinpath(pkgdir(SPICE), "src"); join = true)
+        endswith(f, ".jl") || continue
+        for m in eachmatch(r"^@deprecate\s+(\w+)"m, read(f, String))
+            push!(names, m[1])
+        end
+    end
+    names
+end
+
+"The last call that CSPICE was asked, and its answer."
+const ORACLE_LAST = Ref{Any}(nothing)
+
+"""
+    cspice_call(c) -> result, Exception or NoOracle()
+
+The answer of CSPICE to the call `c`. CSPICE is asked once for a call: a routine that
+changes the state of CSPICE (a load, a watcher, the update that CVPOOL takes) would
+give a second answer of its own.
+"""
 function cspice_call(c::Call)
+    last = ORACLE_LAST[]
+    last !== nothing && last[1] === c && return last[2]
+    r = _cspice_call(c)
+    ORACLE_LAST[] = (c, r)
+    return r
+end
+
+function _cspice_call(c::Call)
     name = lowercase(c.name)
     occursin(NO_ORACLE, name) && return NoOracle()
-    (name in GF_SEARCHES || name in CELL_NAMES) && return NoOracle()
+    (name in GF_SEARCHES || name in CELL_NAMES || name in NO_ORACLE_STATE) && return NoOracle()
+    c.failed && c.short in SIZE_ERRORS && return NoOracle()
     any(a -> handle_value(a) !== nothing, c.inputs) && return NoOracle()
     name in ("spklef", "cklpf", "pcklof", "zzdsklsf") && (name = "furnsh")
     f = haskey(CSPICE_EXTRA, name) ? CSPICE_EXTRA[name] :
-        isdefined(SPICE, Symbol(name)) ? getfield(SPICE, Symbol(name)) : nothing
+        isdefined(SPICE, Symbol(name)) && !(name in SPICEJL_DEPRECATED) ?
+        getfield(SPICE, Symbol(name)) : nothing
     f === nothing && return NoOracle()
     drop = get(DROP, lowercase(c.name), String[])
     args = Any[oracle_arg(a) for a in c.inputs if !(a.name in drop)]
@@ -1458,19 +1543,63 @@ function note_oracle_failure(name, e)
     return
 end
 
-function cspice_reset()
+"Delete the watchers of `agent` in CSPICE; DWPOOL refuses an agent with an update that
+CVPOOL has not taken."
+function cspice_dwpool(agent)
+    SPICE.cvpool(agent)
+    ccall((:dwpool_, SPICE.libcspice), Cint, (Cstring, Cint), agent, sizeof(agent))
     ccall((:reset_c, SPICE.libcspice), Cvoid, ())
+    return nothing
+end
+
+"""
+    cspice_reset()
+
+Reset the oracle before a family: its error status, the kernel pool, the watchers that
+`swpool` set, the body names that `boddef` defined, and the settings of `timdef` and
+`gfstol`. Throw an error if, after the reset, CSPICE does not translate the name EARTH
+or cannot watch one more variable.
+"""
+function cspice_reset()
+    ORACLE_LAST[] = nothing
+    ccall((:reset_c, SPICE.libcspice), Cvoid, ())
+    # KCLEAR keeps the watchers and the names of BODDEF. The watchers of the families
+    # fill the list of watched variables, and CSPICE's own routines then fail
+    # (KERVARSETOVERFLOW) in every later family of the process.
+    foreach(cspice_dwpool, ORACLE_AGENTS)
+    empty!(ORACLE_AGENTS)
+    ccall((:zzbodrst_, SPICE.libcspice), Cint, ())
     SPICE.kclear()
     SPICE.timdef("SET", "CALENDAR", "GREGORIAN")
     SPICE.gfstol(1.0e-6)
-    return SPICE.timdef("SET", "SYSTEM", "UTC")
+    SPICE.timdef("SET", "SYSTEM", "UTC")
+    # the state is clean: the built-in body names, and room in the list of watched
+    # variables (ZZBODTRN registers its watcher only once per process, so a translation
+    # alone does not test it)
+    earth = try
+        code = SPICE.bodn2c("EARTH")
+        SPICE.handleerror()
+        code
+    catch e
+        sprint(showerror, e)
+    end
+    room = try
+        SPICE.swpool("TSPICE_RESET", ["TSPICE_RESET"])
+        "room"
+    catch e
+        sprint(showerror, e)
+    end
+    cspice_dwpool("TSPICE_RESET")
+    (earth == 399 && room == "room") ||
+        error("the oracle is not clean after its reset: bodn2c(\"EARTH\") gives $earth; a new watcher: $room")
+    return nothing
 end
 
 """
 True if CSPICE gives for `c` what Almanac gave and SPICELIB did not: the same error kind,
-or outputs that agree within `NEAR` with `almanac_result`, the outputs of Almanac paired
-with SPICELIB's, where CSPICE also differs from SPICELIB in each output that Almanac
-differs in. Without that last condition a fault of Almanac below `NEAR` would pass as
+or outputs that agree with `almanac_result`, the outputs of Almanac paired with
+SPICELIB's, to the last bit at tolerance zero (`EXACT`) and within `NEAR` otherwise,
+where CSPICE also differs from SPICELIB in each output that Almanac differs in. Without that last condition a fault of Almanac below `NEAR` would pass as
 `cspice` wherever CSPICE and SPICELIB agree. For a call that SPICELIB failed and CSPICE
 did not, SPICELIB's outputs are undefined: Almanac's outputs are compared with CSPICE's.
 """
@@ -1499,7 +1628,7 @@ function agrees_with_cspice(c::Call, almanac_result)
             continue
         end
         length(a) == length(o) || return false
-        near_output(a, o) || return false
+        (EXACT ? all(close_enough.(a, o)) : near_output(a, o)) || return false
         # SPICELIB signalled an error and CSPICE did not: SPICELIB's outputs are the
         # values the caller left there, so Almanac's are compared with CSPICE's alone
         c.failed && continue
@@ -1933,11 +2062,12 @@ within twice the convergence tolerance `tol` of the search (`gfstol`, 1e-6 s by 
 Each library locates an event to within `tol`, so two correct results can differ by up to
 `2 tol`. Where the quantity is flat at the root (a local extremum, an `=` search at a
 small slope), the state at a bisection point is a sign of a value at rounding level, and
-a one-ulp difference of `sin` or `cos` changes one bisection decision: F_GFRR, F_GFILUM
-differ from SPICELIB by one bracket width of the 35th bisection (1.006e-6 and 2.03e-6 s
-against `tol` 1e-6 s, step 34560 s), and are bit-identical with glibc's `sin` and `cos`.
-A result within the tolerance is given as SPICELIB's endpoints; gf_agreement counts how
-many were equal to the last bit.
+a one-ulp difference of `sin` or `cos` changes one bisection decision: with Julia's `sin`
+and `cos`, F_GFRR, F_GFILUM differ from SPICELIB by one bracket width of the 35th
+bisection (1.006e-6 and 2.03e-6 s against `tol` 1e-6 s, step 34560 s), and with those of
+CORE-MATH they are equal to the last bit. A result within the tolerance is given as
+SPICELIB's endpoints, except at tolerance zero (`EXACT`), where it is compared as it is;
+gf_agreement counts how many were equal to the last bit.
 """
 function gf_search_mapping(ctx, c)
     name = lowercase(c.name)
@@ -1967,7 +2097,7 @@ end
 
 """
 The comparison of a GF result window `got` with SPICELIB's `exp` (endpoints within twice
-the convergence tolerance), counted in gf_agreement.tsv.
+the convergence tolerance, or equal at tolerance zero), counted in gf_agreement.tsv.
 """
 function gf_result_pairs(name, exp, got, ctx)
     GF_TOL[] = gfstol(ctx)
@@ -1978,7 +2108,7 @@ function gf_result_pairs(name, exp, got, ctx)
         d = maximum(abs.(got .- exp); init = 0.0)
         d == 0 ? (v[2] += 1) : d <= tol ? (v[3] += 1) : (v[4] += 1)
         d <= tol && (GF_MAXDIFF[name] = max(get(GF_MAXDIFF, name, 0.0), d))
-        d <= tol && return [("result", Any[exp...], Any[exp...])]
+        d <= tol && return [("result", Any[exp...], Any[(EXACT ? got : exp)...])]
         # an endpoint farther than `tol`: a mismatch, which the relative comparison of
         # the values would not catch (1e-12 of an epoch of 1e8 s is 1e-4 s)
         return [("result", Any[exp...], Any["an endpoint off by $d s, tolerance $tol s"; got...])]
@@ -2023,9 +2153,10 @@ function cspice_gf(c::Call)
 end
 
 """
-For a GF result that differs from SPICELIB's by more than twice the tolerance: true if
-CSPICE's result has the endpoints of Almanac's within twice the tolerance, and differs
-from SPICELIB's as Almanac's does. For an error, true if CSPICE throws the same kind.
+For a GF result that differs from SPICELIB's: true if CSPICE's result has the endpoints
+of Almanac's within twice the tolerance (to the last bit at tolerance zero), and differs
+from SPICELIB's as Almanac's does (by more than twice the tolerance, or at all at
+tolerance zero). For an error, true if CSPICE throws the same kind.
 """
 function gf_agrees_with_cspice(c::Call, almanac_result)
     r = cspice_gf(c)
@@ -2034,8 +2165,9 @@ function gf_agrees_with_cspice(c::Call, almanac_result)
     r isa Exception && return false
     exp, got = almanac_result[1][2], filter(x -> x isa Real, almanac_result[1][3])
     tol = 2 * GF_TOL[]
-    within(a, b) = length(a) == length(b) && all(abs.(Float64.(a) .- Float64.(b)) .<= tol)
-    return within(got, r) && !within(exp, r)
+    within(a, b, t) = length(a) == length(b) && all(abs.(Float64.(a) .- Float64.(b)) .<= t)
+    t = EXACT ? 0.0 : tol
+    return within(got, r, t) && !within(exp, r, t)
 end
 "The GF tolerance of the context of the replay, for the oracle."
 const GF_TOL = Ref(1.0e-6)
@@ -2438,14 +2570,15 @@ function note_skip(name, why)
     return nothing
 end
 
-# For selftest.jl: TSPICE_FAULT=value scales each floating-point output of Almanac by
-# 1 + 1e-10, below `NEAR`; TSPICE_FAULT=kind changes the kind of each SpiceError.
+# For selftest.jl: TSPICE_FAULT=value moves each floating-point output of Almanac by one
+# unit in the last place (`nextfloat`), which only a comparison at tolerance zero finds;
+# TSPICE_FAULT=kind changes the kind of each SpiceError.
 const FAULT = get(ENV, "TSPICE_FAULT", "")
 
 function inject_fault(result)
     if FAULT == "value" && result isa AbstractVector
-        scale(g) = g === nothing ? g : Any[x isa AbstractFloat ? x * (1 + 1.0e-10) : x for x in g]
-        return [(n, e, scale(g)) for (n, e, g) in result]
+        move(g) = g === nothing ? g : Any[x isa AbstractFloat ? nextfloat(x) : x for x in g]
+        return [(n, e, move(g)) for (n, e, g) in result]
     elseif FAULT == "kind" && result isa SpiceError
         return SpiceError(result.kind === :invalidoption ? :badframe : :invalidoption, "injected")
     end
@@ -2609,8 +2742,8 @@ The mismatches go to `replay.tsv` as they are found, the first `MAXROWS` of each
 and kind; the others are only counted. Every mismatch (each kind but `match` and
 `skipped`) also goes to `ids.tsv` with its identity: family, routine, kind and a hash of
 all its inputs, which does not depend on the line of the log. run.jl compares these
-identities with the baseline, so that a new mismatch fails even when another one went
-away.
+identities, but those of `cspice` calls, with the baseline, so that a new mismatch fails
+even when another one went away.
 """
 mutable struct Mismatches
     io::IO
@@ -2621,7 +2754,8 @@ end
 Mismatches(io::IO, rows) = Mismatches(io, rows, nothing, nothing)
 Mismatches(io::IO, rows, ids) = Mismatches(io, rows, ids, nothing)
 const MAXROWS = 200
-const GATED_KINDS = ("cspice", "near", "spread", "value", "error", "adapter")
+"The kinds that go to ids.tsv: all but `match` and `skipped`."
+const ID_KINDS = ("cspice", "near", "spread", "value", "error", "adapter")
 
 "FNV-1a hash of a string, 64 bits: stable across Julia versions, unlike `hash`."
 function fnv64(s::AbstractString)
@@ -2639,7 +2773,7 @@ call_id(c::Call) = string(
 )
 
 function record!(m::Mismatches, (fam, c, kind, msg))
-    if m.ids !== nothing && kind in GATED_KINDS
+    if m.ids !== nothing && kind in ID_KINDS
         println(m.ids, fam, '\t', lowercase(c.name), '\t', kind, '\t', call_id(c))
     end
     key = (c.name, kind)
