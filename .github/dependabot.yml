@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # The package and the environments of its workspace (test, docs): pull requests that
+  # widen [compat] to a new release of a dependency, weak dependencies included.
+  - package-ecosystem: "julia"
+    directory: "/"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
