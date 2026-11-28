@@ -529,6 +529,23 @@ group(
         same("PW_AGENT_1"); same("PW_AGENT_2")
         pw_both(() -> SPICE.pdpool("PW_WATCHED", [3.0]), () -> pdpool(ctx, "PW_WATCHED", [3.0]))
         same("PW_AGENT_1"); same("PW_AGENT_2")
+
+        # dwpool: an agent with an update that cvpool has not taken is refused; a deleted
+        # agent gets no update; an agent that is not known is no error.
+        c_dwpool(agent) = (
+            ccall((:dwpool_, SPICE.libcspice), Cint, (Cstring, Cint), agent, sizeof(agent));
+            cspice_kind()
+        )
+        pw_both(() -> SPICE.pdpool("PW_SHARED", [4.0]), () -> pdpool(ctx, "PW_SHARED", [4.0]))
+        @test throws_kind(() -> dwpool(ctx, "PW_AGENT_1"), c_dwpool("PW_AGENT_1"))
+        @test c_dwpool("PW_AGENT_1") === :updatepending
+        same("PW_AGENT_1"); same("PW_AGENT_2")
+        @test (dwpool(ctx, "PW_AGENT_1"), c_dwpool("PW_AGENT_1")) === (nothing, :none)
+        pw_both(() -> SPICE.pdpool("PW_SHARED", [5.0]), () -> pdpool(ctx, "PW_SHARED", [5.0]))
+        @test same("PW_AGENT_1") === false
+        @test (dwpool(ctx, "PW_AGENT_9"), c_dwpool("PW_AGENT_9")) === (nothing, :none)
+        pw_both(() -> SPICE.swpool("PW_AGENT_1", ["PW_SHARED"]), () -> swpool(ctx, "PW_AGENT_1", ["PW_SHARED"]))
+        @test same("PW_AGENT_1") === true
         println("  cvpool equal to CSPICE at ", nsteps, " steps")
 
         # The watches of two contexts are separate.

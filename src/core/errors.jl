@@ -87,7 +87,7 @@ const ERROR_KINDS = (
     :unknownframespec, :unknownmode, :unknownspktype, :unknownsystem,
     :unmatchendpts, :unnaturalrelation, :unorderedrefs, :unorderedtimes, :unparsedtime,
     :unrecognizedtype, :unresolvednames, :unresolvedtimes, :unsupportedbff,
-    :unsupportedspec, :valueoutofrange, :variablenotfound, :varnametoolong, :vectortoobig,
+    :unsupportedspec, :updatepending, :valueoutofrange, :variablenotfound, :varnametoolong, :vectortoobig,
     :vertexnotingrid, :workspacetoosmall, :wrongarchitecture, :wrongdatatype, :wrongsegment,
     :yearoutofrange, :zeroboresight, :zeroboundsextent, :zeroframeid, :zerolengthcolumn,
     :zeroposition, :zeroquaternion, :zerostep, :zerovector, :zerovelocity,

@@ -89,6 +89,7 @@ ldpool
 clpool
 swpool
 cvpool
+dwpool
 poolversion
 ```
 

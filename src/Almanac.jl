@@ -66,7 +66,7 @@ export frinfo, cidfrm, cnmfrm, ccifrm, bltfrm, kplfrm, tkfram, tipbod, tisbod
 export pckfrm, pckfrm!, pckcov, pckcov!
 export bodfnd, bodvcd, boddef
 export pdpool, pcpool, pipool, dvpool, expool, dtpool, gnpool, szpool, lmpool, clpool
-export stpool, ldpool, swpool, cvpool, poolversion, badkpv
+export stpool, ldpool, swpool, cvpool, dwpool, poolversion, badkpv
 export et2lst, lspcn
 export subpnt, subslr, sincpt, srfrec, ilumin, illumg, illumf, phaseq, trgsep, occult
 export limbpt, termpt, tangpt, fovtrg, fovray, getfov, getfvn

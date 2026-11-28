@@ -800,7 +800,7 @@ julia> cvpool(ctx, "MY_AGENT")
 true
 ```
 
-See also [`poolversion`](@ref).
+See also [`dwpool`](@ref), [`poolversion`](@ref).
 
 # References
 
@@ -850,6 +850,55 @@ function cvpool(ctx::SpiceContext, agent::AbstractString)
 end
 
 """
+    dwpool([ctx,] agent) -> Nothing
+
+Delete the watches of `agent`, as the SPICELIB routine
+`DWPOOL`.
+
+After this call, [`cvpool`](@ref) returns `false` for `agent` until a new
+[`swpool`](@ref). An agent that has no watch is no error, and the call then changes
+nothing. CSPICE N0067 has no C function for this routine, so an empty `agent` is an agent
+that has no watch.
+
+Throws `SpiceError(:updatepending)` if `agent` has an update that [`cvpool`](@ref) has not
+returned; the watches are then kept.
+
+# Examples
+```jldoctest
+julia> ctx = SpiceContext();
+
+julia> swpool(ctx, "MY_AGENT", ["BODY399_GM"]);
+
+julia> cvpool(ctx, "MY_AGENT");
+
+julia> dwpool(ctx, "MY_AGENT");
+
+julia> pdpool(ctx, "BODY399_GM", [398600.4]);
+
+julia> cvpool(ctx, "MY_AGENT")
+false
+```
+
+# References
+
+- [NAIF documentation of `DWPOOL`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/spicelib/dwpool.html)
+"""
+function dwpool(ctx::SpiceContext, agent::AbstractString)
+    a = String(strip(agent))
+    lock(ctx.lock) do
+        a in ctx.watch.notify && throw(
+            SpiceError(
+                :updatepending,
+                "Could not delete AGENT $a from the watch symbol table because AGENT is " *
+                    "associated with at least one updated kernel variable."
+            )
+        )
+        delete!(ctx.watch.agents, a)
+    end
+    return nothing
+end
+
+"""
     poolversion([ctx]) -> Int
 
 Return the number of changes of the kernel pool of `ctx` since the context was made.
@@ -892,6 +941,7 @@ boddef(name::AbstractString, code::Integer) = boddef(default_context(), name, co
 swpool(agent::AbstractString, names::AbstractVector{<:AbstractString}) =
     swpool(default_context(), agent, names)
 cvpool(agent::AbstractString) = cvpool(default_context(), agent)
+dwpool(agent::AbstractString) = dwpool(default_context(), agent)
 poolversion() = poolversion(default_context())
 for f in (:expool, :dtpool)
     @eval begin
