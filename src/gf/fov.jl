@@ -96,6 +96,11 @@ function gftfov(
         tframe::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gftfov", "string `inst`", inst)       # CHKFSTR of gftfov_c
+    _chkfstr("gftfov", "string `target`", target)
+    _chkfstr("gftfov", "string `tshape`", tshape)
+    _chkfstr("gftfov", "string `abcorr`", abcorr)
+    _chkfstr("gftfov", "string `obsrvr`", obsrvr)
     _eqstr(tshape, "RAY") && _gf_ray_in_gftfov()
     run = _gf_run(step, tol; bail, report, threads)
     return _gf_fove(ks, inst, tshape, _GF_ZERO3, target, tframe, abcorr, obsrvr, cnfine, run)
@@ -150,6 +155,9 @@ function gfrfov(
         abcorr::AbcorrArg, obsrvr::NameOrID, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gfrfov", "string `inst`", inst)       # CHKFSTR of gfrfov_c
+    _chkfstr("gfrfov", "string `rframe`", rframe)
+    _chkfstr("gfrfov", "string `abcorr`", abcorr)
     run = _gf_run(step, tol; bail, report, threads)
     return _gf_fove(ks, inst, "RAY", _dsk_vec3(raydir), 0, rframe, abcorr, obsrvr, cnfine, run)
 end
@@ -194,6 +202,9 @@ function gffove(
         obsrvr::NameOrID, tol::Real, udstep, udrefn, cnfine::Window; bail = nothing,
         report = nothing, threads::Bool = false
     )
+    _chkfstr("gffove", "string `inst`", inst)       # CHKFSTR of gffove_c
+    _chkfstr("gffove", "string `tshape`", tshape)
+    _chkfstr("gffove", "string `abcorr`", abcorr)
     run = _gf_run(udstep, tol; refine = udrefn, bail, report, threads)
     return _gf_fove(
         ks, inst, tshape, _dsk_vec3(raydir), target, tframe, abcorr, obsrvr,

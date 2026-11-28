@@ -64,27 +64,29 @@ end
     dlaopn(path, ftype, ifname, ncomch) -> DASHandle
 
 Create the DLA file `path` and open it for writing, as
-`dlaopn` of SPICELIB.
+`dlaopn_c`.
 
 A DLA file is a DAS file that holds a doubly linked list of segments; a DSK file is one.
 `ftype` is the file type, `ifname` is the internal file name and `ncomch` is the number of
 comment characters to make room for. The new file has no segment. The file on disk is not
 a complete DLA file until [`dascls`](@ref) runs.
 
-Throws `SpiceError(:emptystring)` if `path` is empty, `SpiceError(:badrecordcount)` if
-`ncomch < 0`, and the error kinds of [`dasonw`](@ref).
+Throws `SpiceError(:emptystring)` if `path`, `ftype` or `ifname` is empty,
+`SpiceError(:badrecordcount)` if `ncomch < 0`, and the error kinds of [`dasonw`](@ref).
 
 See also [`dskopn`](@ref), [`dlabns`](@ref).
 
 # References
 
-- [NAIF documentation of `dlaopn`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/spicelib/dlaopn.html)
+- [NAIF documentation of `dlaopn_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/dlaopn_c.html)
 """
 function dlaopn(
         path::AbstractString, ftype::AbstractString, ifname::AbstractString,
         ncomch::Integer
     )
-    _chkfstr("dlaopn", "file name", path)
+    _chkfstr("dlaopn", "file name", path)       # CHKFSTR of dlaopn_c
+    _chkfstr("dlaopn", "string `ftype`", ftype)
+    _chkfstr("dlaopn", "string `ifname`", ifname)
     ncomch < 0 && throw(
         SpiceError(
             :badrecordcount,

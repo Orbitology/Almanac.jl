@@ -1255,6 +1255,18 @@ function cspice_timdef(action, item, value)
     SPICE.handleerror()
     return String(buf[1:(findfirst(iszero, buf) - 1)])
 end
+# SPICE.jl's occult passes an empty frame as a blank one, which `occult_c` does not see
+function cspice_occult(targ1, shape1, frame1, targ2, shape2, frame2, abcorr, obsrvr, et)
+    ocltid = Ref{Cint}(0)
+    ccall(
+        (:occult_c, SPICE.libcspice), Cvoid,
+        (Cstring, Cstring, Cstring, Cstring, Cstring, Cstring, Cstring, Cstring, SpD, Ref{Cint}),
+        targ1, shape1, frame1, targ2, shape2, frame2, abcorr, obsrvr, et, ocltid
+    )
+    SPICE.handleerror()
+    return Int(ocltid[])
+end
+CSPICE_EXTRA["occult"] = cspice_occult
 CSPICE_EXTRA["timdef"] = cspice_timdef
 CSPICE_EXTRA["evsgp4"] = cspice_evsgp4
 CSPICE_EXTRA["azlcpo"] = cspice_azlcpo

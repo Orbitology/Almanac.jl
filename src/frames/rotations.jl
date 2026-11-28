@@ -594,7 +594,7 @@ function _tk_matrix(
         # Each angle converted by `convrt_` (to degrees, then over the degrees per
         # radian), from RADIANS without a unit, as `tkfram_` does.
         u = units isa Vector{String} && !isempty(units) ? units[1] : "RADIANS"
-        rad = map(x -> convrt(x, u, "RADIANS"), (ang[1], ang[2], ang[3]))
+        rad = map(x -> _convrt(x, u, "RADIANS"), (ang[1], ang[2], ang[3]))
         return _m_eul2m(Float64(rad[1]), Float64(rad[2]), Float64(rad[3]), ax[1], ax[2], ax[3])
     elseif kind == "QUATERNION"
         key = _tk_key(pool, idkey, namekey, "_Q")

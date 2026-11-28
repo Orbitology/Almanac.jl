@@ -117,7 +117,9 @@ A kind is the short error message of the CSPICE routine that the call ports, in 
 case (`:kernelvarnotfound` for `SPICE(KERNELVARNOTFOUND)`). Sibling calls can therefore
 report one failure with different kinds, as in CSPICE: a file that does not exist is
 `:nosuchfile` in `furnsh` and `:filenotfound` in `spkobj`. Test the kinds that the
-docstring of the call lists. A failure that CSPICE does not check has a kind of this
+docstring of the call lists. A call throws `:emptystring` for an empty string argument
+where its C function in CSPICE does, in most calls before any other check. Not every
+docstring lists this kind. A failure that CSPICE does not check has a kind of this
 package, mainly `:badarg` for an argument of the wrong size or type.
 [`Almanac.ERROR_KINDS`](@ref) lists every kind; a kind that is not in the list cannot be
 constructed. A call that has a `found` flag in CSPICE returns `nothing` when nothing is found.
@@ -216,11 +218,13 @@ Base.showerror(io::IO, e::SpkInsufficientDataError) =
     print(io, "SpkInsufficientDataError(", e.kind, "): ", e.msg)
 
 # The check of a string argument in the C interface of CSPICE (the macro CHKFSTR): an
-# empty string is SPICE(EMPTYSTRING). `what` names the argument in the message.
+# empty string is SPICE(EMPTYSTRING). `what` names the argument in the message. An
+# integer code in place of a name has no string to check (`Aberration` in aberration.jl).
 @inline function _chkfstr(who::AbstractString, what::AbstractString, s::AbstractString)
     isempty(s) && throw(SpiceError(:emptystring, "$who: the $what is empty"))
     return nothing
 end
+@inline _chkfstr(::AbstractString, ::AbstractString, ::Integer) = nothing
 
 # The check of a file name argument in the C interface of CSPICE: an empty string is
 # SPICE(EMPTYSTRING) in the wrapper, a blank one SPICE(BLANKFILENAME) in the routine.

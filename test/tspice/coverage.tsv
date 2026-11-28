@@ -90,7 +90,7 @@ dascud	0	0	0	0	0	0	0	997
 dashfs	1477967	0	0	0	0	0	0	762
 daslla	3	0	0	0	0	0	0	1
 dasllc	5048	0	0	0	0	0	0	0
-dasonw	5066	0	0	0	0	0	0	0
+dasonw	5064	0	0	0	0	2	0	0
 dasopr	5124	0	0	0	0	0	0	0
 dasops	1	0	0	0	0	0	0	0
 dasopw	16274	0	0	0	0	1	0	0
@@ -115,7 +115,7 @@ dlabns	10	0	0	0	0	0	0	0
 dlaens	10	0	0	0	0	0	0	0
 dlafns	88	0	0	0	0	0	0	1
 dlafps	15267	0	0	0	0	0	0	1
-dlaopn	7	0	0	0	0	1	0	0
+dlaopn	6	0	0	0	0	2	0	0
 dlatdr	270	0	0	0	0	0	0	0
 dnearp	2	0	0	0	0	0	0	0
 dpgrdr	304	0	0	0	0	0	0	0
@@ -291,7 +291,7 @@ nplnpt	28087	22732	0	0	0	0	0	0
 npsgpt	160	0	0	0	0	0	0	0
 nvc2pl	16040	0	0	0	0	0	0	0
 nvp2pl	7875	0	0	0	0	0	0	0
-occult	45	0	0	0	0	0	0	0
+occult	33	12	0	0	0	0	0	0
 oscelt	10445	0	0	0	0	0	0	0
 oscltx	10443	0	0	0	0	0	0	0
 pckcls	5005	0	0	0	0	0	0	0
@@ -344,7 +344,7 @@ scdecd	64047	0	0	0	0	2	0	1
 sce2c	49026	0	0	0	0	1	0	1
 sce2s	30005	0	0	0	0	0	0	1
 sce2t	35063	0	0	0	0	0	0	1
-scencd	64043	0	0	0	0	0	0	1
+scencd	64042	1	0	0	0	0	0	1
 scfmt	3	0	0	0	0	0	0	1
 scid2n	4	0	0	0	0	0	0	1
 scn2id	8	0	0	0	0	0	0	1
@@ -375,8 +375,8 @@ spkcvt	1366	0	0	0	0	0	0	0
 spkez	841555	0	0	0	0	0	0	0
 spkezp	66095	0	0	0	0	0	0	0
 spkezr	12330	0	0	0	0	0	0	0
-spkgeo	118239	4	0	0	0	0	0	0
-spkgps	341	4	0	0	0	0	0	0
+spkgeo	118238	5	0	0	0	0	0	0
+spkgps	340	5	0	0	0	0	0	0
 spklef	182	0	0	0	0	0	0	0
 spkltc	8641	0	0	0	0	0	0	0
 spkobj	5	0	0	0	0	0	0	0
@@ -424,7 +424,7 @@ surfpv	5016	0	0	0	0	0	0	0
 swpool	27808	0	0	0	0	4	0	0
 sxform	619904	0	0	0	0	1	0	0
 szpool	12	0	0	0	0	0	0	0
-tangpt	33726	0	0	0	0	0	0	0
+tangpt	33725	1	0	0	0	0	0	0
 termpt	840	0	0	0	0	0	0	1
 timdef	156	0	0	0	0	0	0	0
 timout	1460	0	0	0	0	0	0	0

@@ -138,6 +138,18 @@ function _gf_oclt(
     return result
 end
 
+"The CHKFSTR checks of `gfoclt_c` and `gfocce_c`, which check the same strings; `who` names the call."
+function _gf_oclt_chkfstr(who, occtyp, front, fshape, back, bshape, abcorr, obsrvr)
+    _chkfstr(who, "string `occtyp`", occtyp)       # CHKFSTR of gfoclt_c, gfocce_c
+    _chkfstr(who, "string `front`", front)
+    _chkfstr(who, "string `fshape`", fshape)
+    _chkfstr(who, "string `back`", back)
+    _chkfstr(who, "string `bshape`", bshape)
+    _chkfstr(who, "string `abcorr`", abcorr)
+    _chkfstr(who, "string `obsrvr`", obsrvr)
+    return nothing
+end
+
 """
     gfoclt([ctx,] occtyp, front, fshape, fframe, back, bshape, bframe, abcorr, obsrvr,
            step, cnfine; tol=gfstol(ctx), bail=nothing, report=nothing,
@@ -220,21 +232,24 @@ function gfoclt(
         bframe::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _gf_oclt_chkfstr("gfoclt", occtyp, front, fshape, back, bshape, abcorr, obsrvr)
     return _gf_oclt(
         ks, _DSK_DEFAULT_TOLS, occtyp, front, fshape, fframe, back, bshape,
         bframe, abcorr, obsrvr, cnfine, _gf_run(step, tol; bail, report, threads)
     )
 end
-gfoclt(
-    ctx::SpiceContext, occtyp::AbstractString, front::NameOrID, fshape::AbstractString,
-    fframe::NameOrID, back::NameOrID, bshape::AbstractString, bframe::NameOrID,
-    abcorr::AbcorrArg, obsrvr::NameOrID, step::Real, cnfine::Window; tol::Real = gfstol(ctx),
-    bail = nothing, report = nothing, threads::Bool = false
-) =
-    _gf_oclt(
-    kernelset(ctx), dsktolerances(ctx), occtyp, front, fshape, fframe, back,
-    bshape, bframe, abcorr, obsrvr, cnfine, _gf_run(step, tol; bail, report, threads)
-)
+function gfoclt(
+        ctx::SpiceContext, occtyp::AbstractString, front::NameOrID, fshape::AbstractString,
+        fframe::NameOrID, back::NameOrID, bshape::AbstractString, bframe::NameOrID,
+        abcorr::AbcorrArg, obsrvr::NameOrID, step::Real, cnfine::Window;
+        tol::Real = gfstol(ctx), bail = nothing, report = nothing, threads::Bool = false
+    )
+    _gf_oclt_chkfstr("gfoclt", occtyp, front, fshape, back, bshape, abcorr, obsrvr)
+    return _gf_oclt(
+        kernelset(ctx), dsktolerances(ctx), occtyp, front, fshape, fframe, back,
+        bshape, bframe, abcorr, obsrvr, cnfine, _gf_run(step, tol; bail, report, threads)
+    )
+end
 gfoclt(
     occtyp::AbstractString, front::NameOrID, fshape::AbstractString, fframe::NameOrID,
     back::NameOrID, bshape::AbstractString, bframe::NameOrID, abcorr::AbcorrArg,
@@ -270,23 +285,26 @@ function gfocce(
         bframe::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID, tol::Real, udstep, udrefn,
         cnfine::Window; bail = nothing, report = nothing, threads::Bool = false
     )
+    _gf_oclt_chkfstr("gfocce", occtyp, front, fshape, back, bshape, abcorr, obsrvr)
     return _gf_oclt(
         ks, _DSK_DEFAULT_TOLS, occtyp, front, fshape, fframe, back, bshape,
         bframe, abcorr, obsrvr, cnfine,
         _gf_run(udstep, tol; refine = udrefn, bail, report, threads)
     )
 end
-gfocce(
-    ctx::SpiceContext, occtyp::AbstractString, front::NameOrID, fshape::AbstractString,
-    fframe::NameOrID, back::NameOrID, bshape::AbstractString, bframe::NameOrID,
-    abcorr::AbcorrArg, obsrvr::NameOrID, tol::Real, udstep, udrefn, cnfine::Window;
-    bail = nothing, report = nothing, threads::Bool = false
-) =
-    _gf_oclt(
-    kernelset(ctx), dsktolerances(ctx), occtyp, front, fshape, fframe, back,
-    bshape, bframe, abcorr, obsrvr, cnfine,
-    _gf_run(udstep, tol; refine = udrefn, bail, report, threads)
-)
+function gfocce(
+        ctx::SpiceContext, occtyp::AbstractString, front::NameOrID, fshape::AbstractString,
+        fframe::NameOrID, back::NameOrID, bshape::AbstractString, bframe::NameOrID,
+        abcorr::AbcorrArg, obsrvr::NameOrID, tol::Real, udstep, udrefn, cnfine::Window;
+        bail = nothing, report = nothing, threads::Bool = false
+    )
+    _gf_oclt_chkfstr("gfocce", occtyp, front, fshape, back, bshape, abcorr, obsrvr)
+    return _gf_oclt(
+        kernelset(ctx), dsktolerances(ctx), occtyp, front, fshape, fframe, back,
+        bshape, bframe, abcorr, obsrvr, cnfine,
+        _gf_run(udstep, tol; refine = udrefn, bail, report, threads)
+    )
+end
 gfocce(
     occtyp::AbstractString, front::NameOrID, fshape::AbstractString, fframe::NameOrID,
     back::NameOrID, bshape::AbstractString, bframe::NameOrID, abcorr::AbcorrArg,

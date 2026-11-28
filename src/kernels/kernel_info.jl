@@ -14,7 +14,7 @@ For `item = "TOOLKIT"` the result is `"Almanac_v<package version>/CSPICE_N0067"`
 The part after the slash is the CSPICE version whose behavior and file formats the
 package follows; `tkvrsn_c` gives that part alone. Letter case is ignored, and the
 symbol `:TOOLKIT` is accepted as in SPICE.jl. Any other item gives
-`"No version found."`, as in CSPICE.
+`"No version found."`, as in CSPICE, and an empty one throws `SpiceError(:emptystring)`.
 
 # Examples
 ```jldoctest
@@ -27,7 +27,9 @@ true
 - [NAIF documentation of `tkvrsn_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/tkvrsn_c.html)
 """
 function tkvrsn(item::Union{AbstractString, Symbol} = "TOOLKIT")
-    uppercase(strip(String(item))) == "TOOLKIT" || return "No version found."
+    s = String(item)
+    _chkfstr("tkvrsn", "string `item`", s)       # CHKFSTR_VAL of tkvrsn_c
+    uppercase(strip(s)) == "TOOLKIT" || return "No version found."
     return string("Almanac_v", pkgversion(@__MODULE__), "/", CSPICE_VERSION)
 end
 

@@ -13,6 +13,7 @@ For the matrix `R`, `R * v` gives in `to` the components of a vector `v` given i
 TDB. All frame classes of CSPICE are supported. Two inertial frames need no kernel. With ForwardDiff loaded, `et` can be a dual number.
 
 Throws `SpiceError`:
+- `:emptystring` if a frame name is an empty string;
 - `:unknownframe` if a frame name is not known;
 - `:badarg` if `et` is not finite;
 - `:framedatanotfound` if the definition or the constants of a frame are not loaded
@@ -50,8 +51,11 @@ See also [`sxform`](@ref), [`pxder`](@ref).
 
 - [NAIF documentation of `pxform_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/pxform_c.html)
 """
-pxform(ks::KernelSet, from::NameOrID, to::NameOrID, et::Real) =
-    frame_rotation(ks, frame_id(ks, from), frame_id(ks, to), check_epoch(et))
+function pxform(ks::KernelSet, from::NameOrID, to::NameOrID, et::Real)
+    _chkfstr("pxform", "string `from`", from)       # CHKFSTR of pxform_c
+    _chkfstr("pxform", "string `to`", to)
+    return frame_rotation(ks, frame_id(ks, from), frame_id(ks, to), check_epoch(et))
+end
 pxform(ctx::SpiceContext, from::NameOrID, to::NameOrID, et::Real) =
     pxform(kernelset(ctx), from, to, et)
 pxform(from::NameOrID, to::NameOrID, et::Real) = pxform(default_context(), from, to, et)
@@ -82,6 +86,8 @@ See also [`pxform`](@ref), [`spkcpt`](@ref).
 - [NAIF documentation of `pxfrm2_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/pxfrm2_c.html)
 """
 function pxfrm2(ks::KernelSet, from::NameOrID, to::NameOrID, etfrom::Real, etto::Real)
+    _chkfstr("pxfrm2", "string `from`", from)       # CHKFSTR of pxfrm2_c
+    _chkfstr("pxfrm2", "string `to`", to)
     fcode = frame_id(ks, from)
     tcode = frame_id(ks, to)
     jf = frame_rotation(ks, fcode, Int32(1), check_epoch(etfrom))
@@ -177,6 +183,8 @@ See also [`pxform`](@ref), [`pxder`](@ref).
 - [NAIF documentation of `sxform_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/sxform_c.html)
 """
 function sxform(ks::KernelSet, from::NameOrID, to::NameOrID, et::Real)
+    _chkfstr("sxform", "string `from`", from)       # CHKFSTR of sxform_c
+    _chkfstr("sxform", "string `to`", to)
     R, dR = frame_jet(ks, frame_id(ks, from), frame_id(ks, to), check_epoch(et), Val(1))
     return vcat(hcat(R, zero(R)), hcat(dR, R))
 end

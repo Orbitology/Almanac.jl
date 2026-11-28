@@ -73,7 +73,8 @@ function timdef(
     )
     act = _ljucase(action)
     act == "GET" && return _timdef_get(timedefaults(ctx), item)
-    act == "SET" && isempty(value) && throw(
+    # `timdef_c` checks `value` where `eqstr_c` finds SET, which ignores every blank
+    _eqstr(action, "SET") && isempty(value) && throw(
         SpiceError(
             :emptystring,
             "timdef: the value to set must not be an empty string"

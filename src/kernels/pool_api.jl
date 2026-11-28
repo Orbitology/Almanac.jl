@@ -297,7 +297,9 @@ end
 "The body code of `body` (a code, or a name or an integer string for `bods2c`); `what` names it in the error."
 @inline _body_id(::KernelSet, id::Integer, ::AbstractString) = Int32(id)
 function _body_id(ks::KernelSet, name::AbstractString, what::AbstractString)
-    code = bods2c(ks, name)
+    # The lookup of `bods2c` without the CHKFSTR of `bods2c_c`: an empty name that the C
+    # function of the call does not check is a blank name for SPICELIB, which no body has.
+    code = _body_code_lookup(ks.name2code, name)
     code === nothing && _no_body_id(what, name)
     return Int32(code)
 end

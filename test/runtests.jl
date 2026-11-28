@@ -35,7 +35,7 @@ const GROUPS = [
     "geom_subpoints", "geom_illum", "geom_occult", "geom_limbterm", "geom_fov", "geom_constobs",
     "geom_azel", "table",
     "ek_file", "ek_parse", "ek_query", "ek_threads", "ek_write", "jsonkernel", "providers", "queries",
-    "memkernels", "alloccheck", "ad_enzyme", "ad_mooncake", "ad_zygote", "ad_tracked", "static",
+    "memkernels", "emptystring", "alloccheck", "ad_enzyme", "ad_mooncake", "ad_zygote", "ad_tracked", "static",
 ]
 
 "Wall time of each group of this run, in the order of the run."

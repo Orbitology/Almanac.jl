@@ -46,7 +46,7 @@ function _geo_fov_angle(
         :unitsmissing,
         "the variable INS$(instid)_FOV_ANGLE_UNITS is not in the kernel pool"
     )
-    return Float64(convrt(@inbounds(v[1]), units, "RADIANS"))
+    return Float64(_convrt(@inbounds(v[1]), units, "RADIANS"))
 end
 
 function _geo_getfov(ks::KernelSet, instid::Integer, room::Integer)
@@ -218,8 +218,10 @@ See also [`getfov`](@ref), [`bodn2c`](@ref).
 
 - [NAIF documentation of `getfvn_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/getfvn_c.html)
 """
-getfvn(ks::KernelSet, inst::AbstractString, room::Integer = _GEO_MAXVRT) =
-    _geo_getfov(ks, _body_id(ks, inst, "instrument"), room)
+function getfvn(ks::KernelSet, inst::AbstractString, room::Integer = _GEO_MAXVRT)
+    _chkfstr("getfvn", "string `inst`", inst)        # CHKFSTR of getfvn_c
+    return _geo_getfov(ks, _body_id(ks, inst, "instrument"), room)
+end
 getfvn(ctx::SpiceContext, inst::AbstractString, room::Integer = _GEO_MAXVRT) =
     getfvn(kernelset(ctx), inst, room)
 getfvn(inst::AbstractString, room::Integer = _GEO_MAXVRT) = getfvn(default_context(), inst, room)
@@ -856,6 +858,11 @@ function fovtrg(
         ks::KernelSet, inst::NameOrID, target::NameOrID, tshape::AbstractString,
         tframe::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID, et::Real
     )
+    _chkfstr("fovtrg", "string `inst`", inst)       # CHKFSTR of fovtrg_c
+    _chkfstr("fovtrg", "string `target`", target)
+    _chkfstr("fovtrg", "string `tshape`", tshape)
+    _chkfstr("fovtrg", "string `abcorr`", abcorr)
+    _chkfstr("fovtrg", "string `obsrvr`", obsrvr)
     _eqstr(tshape, "RAY") && _throw_spice(
         :invalidoption,
         "the target shape RAY is not valid in fovtrg; use fovray"
@@ -914,11 +921,15 @@ See also [`fovtrg`](@ref), [`gfrfov`](@ref), [`sincpt`](@ref).
 
 - [NAIF documentation of `fovray_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/fovray_c.html)
 """
-fovray(
-    ks::KernelSet, inst::NameOrID, raydir::AbstractVector, rframe::NameOrID,
-    abcorr::AbcorrArg, obsrvr::NameOrID, et::Real
-) =
-    _geo_fovvis(ks, inst, _GEO_FOV_RAY, _dsk_vec3(raydir), 0, rframe, abcorr, obsrvr, et)
+function fovray(
+        ks::KernelSet, inst::NameOrID, raydir::AbstractVector, rframe::NameOrID,
+        abcorr::AbcorrArg, obsrvr::NameOrID, et::Real
+    )
+    _chkfstr("fovray", "string `inst`", inst)       # CHKFSTR of fovray_c
+    _chkfstr("fovray", "string `abcorr`", abcorr)
+    _chkfstr("fovray", "string `obsrvr`", obsrvr)
+    return _geo_fovvis(ks, inst, _GEO_FOV_RAY, _dsk_vec3(raydir), 0, rframe, abcorr, obsrvr, et)
+end
 fovray(
     ctx::SpiceContext, inst::NameOrID, raydir::AbstractVector, rframe::NameOrID,
     abcorr::AbcorrArg, obsrvr::NameOrID, et::Real

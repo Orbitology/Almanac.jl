@@ -164,6 +164,7 @@ function _ek_locate(
         h::DASHandle, who::AbstractString, segno::Integer, recno::Integer,
         column::AbstractString, types::Tuple
     )
+    _chkfstr(who, "string `column`", column)       # CHKFSTR of ekrcec_c, ekrced_c, ekrcei_c
     _ek_check_read(h, who)
     segdsc = _ek_sdsc(h, segno)
     col = _ek_find_column(h, segdsc, column)
@@ -191,6 +192,7 @@ null entry gives an empty vector and `isnull == true`; for a null entry CSPICE g
 count of 1, or the size of a fixed-size array column, and values without meaning.
 
 Throws `SpiceError` with the kind
+- `:emptystring` if `column` is empty;
 - `:invalidindex` if `segno` is not a segment of the file;
 - `:bug` if the segment has no column `column`;
 - `:wrongdatatype` if the column does not have character type;
@@ -390,7 +392,10 @@ See also [`ekcii`](@ref).
 
 - [NAIF documentation of `ekccnt_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/ekccnt_c.html)
 """
-ekccnt(ks::KernelSet, table::AbstractString) = length(_ek_table(ks, table).cnames)
+function ekccnt(ks::KernelSet, table::AbstractString)
+    _chkfstr("ekccnt", "string `table`", table)       # CHKFSTR of ekccnt_c
+    return length(_ek_table(ks, table).cnames)
+end
 ekccnt(ctx::SpiceContext, table::AbstractString) = ekccnt(kernelset(ctx), table)
 ekccnt(table::AbstractString) = ekccnt(default_context(), table)
 
@@ -446,16 +451,18 @@ tuple `(n, xbegs, xends, xtypes, xclass, tabs, cols, failed, errmsg)`.
 - `tabs`, `cols`: the table name (never the alias) and the column name, in upper case.
 - `failed`, `errmsg`: the error flag and the message of CSPICE for the query.
 
-A query that is not valid gives `failed == true`, `n == 0` and empty vectors; the call
-does not throw for it. The query is checked against the loaded tables, as in
-[`ekfind`](@ref).
+A query that is not valid gives `failed == true`, `n == 0` and empty vectors. The call
+throws only for an empty `query`, `SpiceError(:emptystring)`, as `ekpsel_c` does. The
+query is checked against the loaded tables, as in [`ekfind`](@ref).
 
 # References
 
 - [NAIF documentation of `ekpsel_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/ekpsel_c.html)
 """
-ekpsel(ks::KernelSet, td::TimeDefaults, query::AbstractString) =
-    _ek_psel(ks.ektables, ks, td, query)
+function ekpsel(ks::KernelSet, td::TimeDefaults, query::AbstractString)
+    _chkfstr("ekpsel", "string `query`", query)       # CHKFSTR of ekpsel_c
+    return _ek_psel(ks.ektables, ks, td, query)
+end
 ekpsel(ctx::SpiceContext, query::AbstractString) =
     ekpsel(kernelset(ctx), timedefaults(ctx), query)
 ekpsel(query::AbstractString) = ekpsel(default_context(), query)
@@ -475,8 +482,8 @@ constraints.
 
 The fetch calls take `result` as first argument.
 
-A query that is not valid gives `failed == true`, the message of CSPICE in `errmsg`
-and a result without rows; the call does not throw for it. Positions in a message are
+Apart from the errors listed below, a query that is not valid gives `failed == true`,
+the message of CSPICE in `errmsg` and a result without rows. Positions in a message are
 byte positions in `query`, from 1. A time value in a query is converted with the
 leap-second and clock kernels of the context.
 
@@ -500,7 +507,8 @@ The call changes nothing, so many tasks can run queries at the same time.
       accepts a type mismatch or a non-scalar column after it. This call refuses the
       query.
 
-Throws `SpiceError` for a query that is over a size limit:
+Throws `SpiceError` for an empty query or one that is over a size limit:
+- `:emptystring` if `query` is the empty string, as in `ekfind_c`;
 - `:celltoosmall` if the WHERE clause expands to more than 1000 constraints (fewer if
   the query has other clauses);
 - `:toomanyconjunctions` if it expands to more than 1000 OR branches;
@@ -563,6 +571,7 @@ See also [`eklef`](@ref), [`ekpsel`](@ref), [`ekrcec`](@ref).
 - [NAIF documentation of `ekfind_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/ekfind_c.html)
 """
 function ekfind(ks::KernelSet, td::TimeDefaults, query::AbstractString)
+    _chkfstr("ekfind", "string `query`", query)       # CHKFSTR of ekfind_c
     q, failed, errmsg = _ek_encode_query(ks.ektables, ks, td, query)
     failed && return _ek_empty_result(), true, errmsg
     return _ek_search(ks, q), false, ""

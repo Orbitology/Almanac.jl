@@ -1080,8 +1080,14 @@ julia> convrt(1, "km", "METERS")
 - [NAIF documentation of `convrt_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/convrt_c.html)
 """
 function convrt(x::Real, in::AbstractString, out::AbstractString)
-    _chkfstr("convrt", "string `in`", in)
+    _chkfstr("convrt", "string `in`", in)       # CHKFSTR of convrt_c
     _chkfstr("convrt", "string `out`", out)
+    return _convrt(x, in, out)
+end
+
+# `convrt_` without the checks of `convrt_c`. The readers of kernel variables call it, as
+# SPICELIB calls `convrt_`: there an empty unit is a blank one, which is not recognized.
+function _convrt(x::Real, in::AbstractString, out::AbstractString)
     i = _m_unit(in)
     j = _m_unit(out)
     (i == 0 || j == 0) && throw(

@@ -206,6 +206,7 @@ resolved in `ctx` (default: the default context); built-in frames need no kernel
 address components of the descriptor are zero; [`dafena`](@ref) sets them.
 
 Throws `SpiceError`:
+- `:emptystring` if `frame` is an empty string;
 - `:barycenterephem` if `body == 0`;
 - `:bodyandcentersame` if `body == center`;
 - `:invalidrefframe` if the frame is not known;
@@ -220,6 +221,7 @@ function spkpds(
         ctx::SegContext, body::Integer, center::Integer, frame::SegFrame,
         type::Integer, first::Real, last::Real
     )
+    _chkfstr("spkpds", "string `frame`", frame)       # CHKFSTR of spkpds_c
     body == 0 && throw(
         SpiceError(
             :barycenterephem, "spkpds: you've attempted to create " *
@@ -595,7 +597,7 @@ end
         -> (cd, n, ninrec, first, last, intlen, btime)
 
 The first checks of `spkw02`, `spkw03` and `pckw02`, which hold `per` series of `what`
-coefficients in a record: the handle, the empty strings, the record count
+coefficients in a record: the empty strings, the handle, the record count
 (`:numcoeffsnotpos`) and the record length. Returns the flat coefficients `cd`, the
 record count `n`, the record length `ninrec` and the times as `Float64`.
 """
@@ -603,9 +605,9 @@ function _seg_cheb_args(
         who::AbstractString, what::AbstractString, per::Int, h::DAFHandle, frame,
         first, last, segid, intlen, cdata, btime
     )
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     cd, n, ninrec = _seg_flat(who, "cdata", cdata, 0)
     first, last, intlen, btime = Float64(first), Float64(last), Float64(intlen), Float64(btime)
     n <= 0 && throw(
@@ -684,9 +686,10 @@ Every `spkwNN` writer puts its segment on disk when the call returns, with the d
 CSPICE writes from the same input. A call that throws writes nothing.
 
 Throws `SpiceError`. Every `spkwNN` writer throws:
+- `:emptystring` if `frame` or `segid` is empty, except `spkw01`, `spkw19` and `spkw21`,
+  which have no C function in CSPICE N0067;
 - `:dafnosuchhandle` if the handle is closed, `:dafinvalidaccess` if it is open for
   reading;
-- `:emptystring` if `frame` or `segid` is empty;
 - `:invalidrefframe` if the frame is not known.
 
 The other checks and their error kinds follow CSPICE writer by writer, so they differ
@@ -793,6 +796,8 @@ function spkw20(
         frame::SegFrame, first::Real, last::Real, segid::AbstractString, intlen::Real,
         cdata, dscale::Real, tscale::Real, initjd::Real, initfr::Real
     )
+    frame isa AbstractString && _chkfstr("spkw20", "string `frame`", frame)       # CHKFSTR of spkw20_c
+    _chkfstr("spkw20", "string `segid`", segid)
     refcod, data = _seg_cheb20(
         "spkw20", "SPK", ctx, h, frame, first, last, segid, intlen, cdata, dscale, tscale,
         initjd, initfr
@@ -815,8 +820,6 @@ function _seg_cheb20(
         cdata, scale::Real, tscale::Real, initjd::Real, initfr::Real
     )
     _daf_check_write(h, who)
-    frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
-    _chkfstr(who, "string `segid`", segid)
     cd, n, ninrec = _seg_flat(who, "cdata", cdata, 0)
     first, last, intlen = Float64(first), Float64(last), Float64(intlen)
     scale, tscale, initjd, initfr = Float64(scale), Float64(tscale), Float64(initjd), Float64(initfr)
@@ -910,9 +913,9 @@ function spkw05(
         epochs
     )
     who = "spkw05"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     st, n, _ = _seg_flat(who, "states", states, 6)
     ep = _seg_vec(who, "epochs", epochs, n)
     gm <= 0 && throw(SpiceError(:nonpositivemass, "$who: GM = $gm; non-positive gravitational parameter"))
@@ -980,9 +983,9 @@ function spkw08(
         states, epoch1::Real, step::Real
     )
     who = "spkw08"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     st, n, _ = _seg_flat(who, "states", states, 6)
     first, last, begtim, step = Float64(first), Float64(last), Float64(epoch1), Float64(step)
     refcod = _seg_refcode(who, ctx, frame)
@@ -1037,9 +1040,9 @@ function spkw09(
         states, epochs
     )
     who = "spkw09"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     st, n, _ = _seg_flat(who, "states", states, 6)
     ep = _seg_vec(who, "epochs", epochs, n)
     refcod = _seg_refcode(who, ctx, frame)
@@ -1100,9 +1103,9 @@ function spkw12(
         states, epoch1::Real, step::Real
     )
     who = "spkw12"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     st, n, _ = _seg_flat(who, "states", states, 6)
     first, last, begtim, step = Float64(first), Float64(last), Float64(epoch1), Float64(step)
     winsiz = (degree + 1) ÷ 2
@@ -1159,9 +1162,9 @@ function spkw13(
         states, epochs
     )
     who = "spkw13"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     st, n, _ = _seg_flat(who, "states", states, 6)
     ep = _seg_vec(who, "epochs", epochs, n)
     winsiz = (degree + 1) ÷ 2
@@ -1236,9 +1239,9 @@ function spkw18(
         degree::Integer, packts, epochs
     )
     who = "spkw18"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     sub = _spk18_subtype(subtyp)
     (sub == 0 || sub == 1) || throw(
         SpiceError(
@@ -1338,9 +1341,9 @@ function spkw15(
         pa, p::Real, ecc::Real, j2flg::Real, pv, gm::Real, j2::Real, radius::Real
     )
     who = "spkw15"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     tp = _seg_fixed(who, "tp", tp, 3)
     pa = _seg_fixed(who, "pa", pa, 3)
     pv = _seg_fixed(who, "pv", pv, 3)
@@ -1420,9 +1423,9 @@ function spkw17(
         rapol::Real, decpol::Real
     )
     who = "spkw17"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     el = _seg_fixed(who, "eqel", eqel, 9)
     record = Float64[epoch, el..., rapol, decpol]
     a = record[2]
@@ -1482,8 +1485,6 @@ function spkw01(
     )
     who = "spkw01"
     _daf_check_write(h, who)
-    frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
-    _chkfstr(who, "string `segid`", segid)
     dl, n, _ = _seg_flat(who, "dlines", dlines, 71)
     ep = _seg_vec(who, "epochs", epochs, n)
     _seg_refcode(who, ctx, frame)
@@ -1547,8 +1548,6 @@ function spkw21(
     )
     who = "spkw21"
     _daf_check_write(h, who)
-    frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
-    _chkfstr(who, "string `segid`", segid)
     dl, n, dlsize = _seg_flat(who, "dlines", dlines, 0)
     ep = _seg_vec(who, "epochs", epochs, n)
     dlsize > 111 && throw(
@@ -1833,8 +1832,6 @@ function spkw19(
     )
     who = "spkw19"
     _daf_check_write(h, who)
-    frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
-    _chkfstr(who, "string `segid`", segid)
     nintvl = _seg_mini_count(who, npkts, subtps, degres)
     pk = _seg_vec(who, "packts", packts, -1)
     ep = _seg_vec(who, "epochs", epochs, -1)
@@ -1899,8 +1896,8 @@ and return its writer.
 [`spk14a`](@ref) and end the segment with [`spk14e`](@ref).
 
 Throws `SpiceError`:
-- `:dafnosuchhandle` or `:dafinvalidaccess` if the file is not open for writing;
 - `:emptystring` if `frame` or `segid` is empty;
+- `:dafnosuchhandle` or `:dafinvalidaccess` if the file is not open for writing;
 - `:invalidargument` if `chbdeg < 0`;
 - `:segidtoolong` or `:nonprintingchars` (the kind of `sgbwfs`) if `segid` is not valid;
 - the error kinds of [`spkpds`](@ref).
@@ -1945,9 +1942,9 @@ function spk14b(
         center::Integer, frame::SegFrame, first::Real, last::Real, chbdeg::Integer
     )
     who = "spk14b"
-    _daf_check_write(h, who)
     frame isa AbstractString && _chkfstr(who, "string `frame`", frame)
     _chkfstr(who, "string `segid`", segid)
+    _daf_check_write(h, who)
     chbdeg < 0 && throw(
         SpiceError(
             :invalidargument, "$who: the degree of the " *

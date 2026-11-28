@@ -135,6 +135,18 @@ function _geo_sfxcor(
     return true, spoint, trgepc, _m_norm(spoint - obspos) * udir
 end
 
+# The CHKFSTR of `sincpt_c`. The public forms make it, and the geometry finder calls
+# `_geo_sincpt` without it, as SPICELIB calls `sincpt_`.
+@inline function _geo_sincpt_chkfstr(method, target, fixref, abcorr, obsrvr, dref)
+    _chkfstr("sincpt", "string `method`", method)
+    _chkfstr("sincpt", "string `target`", target)
+    _chkfstr("sincpt", "string `fixref`", fixref)
+    _chkfstr("sincpt", "string `abcorr`", abcorr)
+    _chkfstr("sincpt", "string `obsrvr`", obsrvr)
+    _chkfstr("sincpt", "string `dref`", dref)
+    return nothing
+end
+
 function _geo_sincpt(
         ks::KernelSet, tols::DSKTolerances, method::AbstractString,
         target::NameOrID, et::Real, fixref::NameOrID, abcorr::AbcorrArg, obsrvr::NameOrID,
@@ -224,19 +236,25 @@ See also [`subpnt`](@ref), [`dskxsi`](@ref), [`gfsntc`](@ref), [`fovray`](@ref).
 
 - [NAIF documentation of `sincpt_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/sincpt_c.html)
 """
-sincpt(
-    ks::KernelSet, method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID,
-    abcorr::AbcorrArg, obsrvr::NameOrID, dref::NameOrID, dvec::AbstractVector
-) =
-    _geo_sincpt(ks, _DSK_DEFAULT_TOLS, method, target, et, fixref, abcorr, obsrvr, dref, dvec)
-sincpt(
-    ctx::SpiceContext, method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID,
-    abcorr::AbcorrArg, obsrvr::NameOrID, dref::NameOrID, dvec::AbstractVector
-) =
-    _geo_sincpt(
-    kernelset(ctx), dsktolerances(ctx), method, target, et, fixref, abcorr, obsrvr,
-    dref, dvec
-)
+function sincpt(
+        ks::KernelSet, method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID,
+        abcorr::AbcorrArg, obsrvr::NameOrID, dref::NameOrID, dvec::AbstractVector
+    )
+    _geo_sincpt_chkfstr(method, target, fixref, abcorr, obsrvr, dref)
+    return _geo_sincpt(
+        ks, _DSK_DEFAULT_TOLS, method, target, et, fixref, abcorr, obsrvr, dref, dvec
+    )
+end
+function sincpt(
+        ctx::SpiceContext, method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID,
+        abcorr::AbcorrArg, obsrvr::NameOrID, dref::NameOrID, dvec::AbstractVector
+    )
+    _geo_sincpt_chkfstr(method, target, fixref, abcorr, obsrvr, dref)
+    return _geo_sincpt(
+        kernelset(ctx), dsktolerances(ctx), method, target, et, fixref, abcorr, obsrvr,
+        dref, dvec
+    )
+end
 sincpt(
     method::AbstractString, target::NameOrID, et::Real, fixref::NameOrID, abcorr::AbcorrArg,
     obsrvr::NameOrID, dref::NameOrID, dvec::AbstractVector

@@ -469,8 +469,7 @@ end
     dasonw(path, ftype, ifname, ncomr) -> DASHandle
 
 Create the DAS file `path` and open it for writing, as
-`dasonw`
-of SPICELIB.
+`dasonw_c`.
 
 `ftype` is the file type (for example `"DSK"`; four characters are stored), `ifname` is
 the internal file name and `ncomr` is the number of comment records, 1024 characters in
@@ -481,6 +480,7 @@ and an empty directory record. Data that are added afterwards are in memory unti
 [`dascls`](@ref) writes them. An existing file is never replaced.
 
 Throws `SpiceError`:
+- `:emptystring` if `path`, `ftype` or `ifname` is empty;
 - `:blankfilename` if `path` is blank;
 - `:fileopenfail` if `path` exists or the file cannot be created;
 - `:blankfiletype` if `ftype` is blank, `:illegalcharacter` if it has a character that is
@@ -491,12 +491,15 @@ See also [`dlaopn`](@ref), [`dskopn`](@ref), [`dasops`](@ref).
 
 # References
 
-- [NAIF documentation of `dasonw`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/spicelib/dasonw.html)
+- [NAIF documentation of `dasonw_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/dasonw_c.html)
 """
 function dasonw(
         path::AbstractString, ftype::AbstractString, ifname::AbstractString,
         ncomr::Integer
     )
+    _chkfstr("dasonw", "string `fname`", path)       # CHKFSTR of dasonw_c
+    _chkfstr("dasonw", "string `ftype`", ftype)
+    _chkfstr("dasonw", "string `ifname`", ifname)
     isempty(strip(path)) && throw(SpiceError(:blankfilename, "dasonw: the file name is blank"))
     ttype = _daf_check_ftype("dasonw", ftype)
     ncomr < 0 && throw(

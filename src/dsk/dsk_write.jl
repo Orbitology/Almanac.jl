@@ -21,9 +21,9 @@ make room for. The new file has no segment. Segments that [`dskw02`](@ref) adds 
 memory, and the file on disk is not a complete DSK file, until [`dskcls`](@ref) runs. An
 existing file is never replaced.
 
-Throws `SpiceError(:emptystring)` if `fname` is empty, `:badrecordcount` if `ncomch < 0`,
-`:fileopenfail` if `fname` exists or cannot be created, and the other error kinds of
-[`dasonw`](@ref).
+Throws `SpiceError(:emptystring)` if `fname` or `ifname` is empty, `:badrecordcount` if
+`ncomch < 0`, `:fileopenfail` if `fname` exists or cannot be created, and the other error
+kinds of [`dasonw`](@ref).
 
 See also [`dskw02`](@ref) for an example, [`dasac`](@ref) to add comments.
 
@@ -31,8 +31,11 @@ See also [`dskw02`](@ref) for an example, [`dasac`](@ref) to add comments.
 
 - [NAIF documentation of `dskopn_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/dskopn_c.html)
 """
-dskopn(fname::AbstractString, ifname::AbstractString, ncomch::Integer) =
-    dlaopn(fname, "DSK", ifname, ncomch)
+function dskopn(fname::AbstractString, ifname::AbstractString, ncomch::Integer)
+    _chkfstr("dskopn", "string `fname`", fname)       # CHKFSTR of dskopn_c
+    _chkfstr("dskopn", "string `ifname`", ifname)
+    return dlaopn(fname, "DSK", ifname, ncomch)
+end
 
 """
     dskcls(handle, optmiz=true) -> Nothing
@@ -551,6 +554,7 @@ The segment becomes the last one of the file. It is on disk after [`dskcls`](@re
 call that throws adds nothing to the file.
 
 Throws `SpiceError`, with the kinds of CSPICE:
+- `:emptystring` if `frame` is an empty string;
 - `:frameidnotfound` if the frame is not known;
 - `:timesoutoforder` unless `first < last`;
 - `:valueoutofrange`, `:invalidlonextent`, `:boundsoutoforder`, `:zeroboundsextent` or
@@ -624,6 +628,7 @@ function dskw02(
         mncor2::Real, mxcor2::Real, mncor3::Real, mxcor3::Real, first::Real, last::Real,
         vrtces, plates, spaixd, spaixi
     )
+    _chkfstr("dskw02", "string `frame`", frame)       # CHKFSTR of dskw02_c
     frmcde = frame isa Integer ? Int(frame) : _namfrm(kernelset(ctx), frame)
     frmcde == 0 && _throw_spice(:frameidnotfound, "the frame name $frame could not be mapped to an ID code")
     last <= first && _throw_spice(

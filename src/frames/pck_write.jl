@@ -113,9 +113,9 @@ intervals of equal length) to the file of `handle`, as
 The segment is on disk when the call returns. A call that throws writes nothing.
 
 Throws `SpiceError`:
+- `:emptystring` if `frame` or `segid` is empty;
 - `:dafnosuchhandle` if the handle is closed, `:dafinvalidaccess` if it is open for
   reading;
-- `:emptystring` if `frame` or `segid` is empty;
 - `:numcoeffsnotpos` if `cdata` has no record (an empty vector of vectors or a matrix
   without columns);
 - `:badarg` if the records differ in length, or if their length is not a positive
@@ -372,7 +372,6 @@ The segment is on disk when the call returns. A call that throws writes nothing.
 Throws `SpiceError`:
 - `:dafnosuchhandle` if the handle is closed, `:dafinvalidaccess` if it is open for
   reading;
-- `:emptystring` if `frame` or `segid` is empty;
 - `:invalidcount` if `cdata` has no record;
 - `:badarg` if the records differ in length, or if their length is not 3 * (degree + 2);
 - `:invaliddegree` if the degree is greater than 50;

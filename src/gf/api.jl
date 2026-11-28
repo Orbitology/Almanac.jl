@@ -160,6 +160,10 @@ function gfdist(
         relate::AbstractString, refval::Real, adjust::Real, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gfdist", "string `target`", target)       # CHKFSTR of gfdist_c
+    _chkfstr("gfdist", "string `abcorr`", abcorr)
+    _chkfstr("gfdist", "string `obsrvr`", obsrvr)
+    _chkfstr("gfdist", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     q = GFDistance(ks, target, abcorr, obsrvr)
@@ -189,6 +193,10 @@ function gfrr(
         relate::AbstractString, refval::Real, adjust::Real, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gfrr", "string `target`", target)       # CHKFSTR of gfrr_c
+    _chkfstr("gfrr", "string `abcorr`", abcorr)
+    _chkfstr("gfrr", "string `obsrvr`", obsrvr)
+    _chkfstr("gfrr", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     q = GFRangeRate(ks, target, abcorr, obsrvr)
@@ -252,6 +260,15 @@ function gfsep(
         cnfine::Window; tol::Real = _GF_CNVTOL, bail = nothing, report = nothing,
         threads::Bool = false
     )
+    _chkfstr("gfsep", "string `targ1`", targ1)       # CHKFSTR of gfsep_c
+    _chkfstr("gfsep", "string `shape1`", shape1)
+    _chkfstr("gfsep", "string `frame1`", frame1)
+    _chkfstr("gfsep", "string `targ2`", targ2)
+    _chkfstr("gfsep", "string `shape2`", shape2)
+    _chkfstr("gfsep", "string `frame2`", frame2)
+    _chkfstr("gfsep", "string `abcorr`", abcorr)
+    _chkfstr("gfsep", "string `obsrvr`", obsrvr)
+    _chkfstr("gfsep", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     q = GFSeparation(ks, targ1, shape1, frame1, targ2, shape2, frame2, abcorr, obsrvr)
@@ -305,6 +322,11 @@ function gfpa(
         cnfine::Window; tol::Real = _GF_CNVTOL, bail = nothing, report = nothing,
         threads::Bool = false
     )
+    _chkfstr("gfpa", "string `target`", target)       # CHKFSTR of gfpa_c
+    _chkfstr("gfpa", "string `illmn`", illmn)
+    _chkfstr("gfpa", "string `abcorr`", abcorr)
+    _chkfstr("gfpa", "string `obsrvr`", obsrvr)
+    _chkfstr("gfpa", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     q = GFPhase(ks, target, illmn, abcorr, obsrvr)
@@ -425,6 +447,13 @@ function gfposc(
         relate::AbstractString, refval::Real, adjust::Real, step::Real, cnfine::Window;
         tol::Real = _GF_CNVTOL, bail = nothing, report = nothing, threads::Bool = false
     )
+    _chkfstr("gfposc", "string `target`", target)       # CHKFSTR of gfposc_c
+    _chkfstr("gfposc", "string `frame`", frame)
+    _chkfstr("gfposc", "string `abcorr`", abcorr)
+    _chkfstr("gfposc", "string `obsrvr`", obsrvr)
+    _chkfstr("gfposc", "string `crdsys`", crdsys)
+    _chkfstr("gfposc", "string `coord`", coord)
+    _chkfstr("gfposc", "string `relate`", relate)
     run = _gf_run(step, tol; bail, report, threads)
     _gf_relcode(relate)
     _gf_cslv_checks(adjust, run.tol)
@@ -508,6 +537,7 @@ function gfuds(
         adjust::Real, step::Real, cnfine::Window; tol::Real = _GF_CNVTOL, bail = nothing,
         report = nothing, threads::Bool = false
     ) where {F, D}
+    _chkfstr("gfuds", "string `relate`", relate)       # CHKFSTR of gfuds_c
     run = _gf_run(step, tol; bail, report, threads)
     return _gf_search(GFFunction(udfuns, udqdec), relate, refval, adjust, cnfine, run)
 end
@@ -689,6 +719,12 @@ function gfevnt(
         qlpars::AbstractVector{Bool}, op::AbstractString, refval::Real, tol::Real,
         adjust::Real, cnfine::Window; bail = nothing, report = nothing, threads::Bool = false
     )
+    n = length(qpnams)
+    n <= 10 || throw(              # gfevnt_c checks the count before the strings
+        SpiceError(:invalidcount, "Parameter count must be in the range 0:10 but was $n.")
+    )
+    _chkfstr("gfevnt", "string `gquant`", gquant)       # CHKFSTR of gfevnt_c
+    _chkfstr("gfevnt", "string `op`", op)
     quant = _ljucase(gquant)
     k = findfirst(p -> p.first == quant, _GF_QPARS)
     k === nothing && throw(
@@ -698,11 +734,10 @@ function gfevnt(
                 "COORDINATE, RANGE RATE, ANGULAR SEPARATION,ILLUMINATION ANGLE."
         )
     )
-    n = length(qpnams)
-    (n <= 10 && length(qcpars) >= n) || throw(
+    length(qcpars) >= n || throw(
         SpiceError(
             :invalidcount,
-            "Number of quantity definition parameters = $n;  must be in range 0:10."
+            "gfevnt: $(length(qcpars)) character values for $n quantity parameters"
         )
     )
     pnames = String[_ljucase(s) for s in qpnams]

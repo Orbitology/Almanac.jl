@@ -1400,7 +1400,13 @@ See also [`timout`](@ref), [`et2utc`](@ref), [`utc2et`](@ref), [`tparse`](@ref).
 - [NAIF documentation of `str2et_c`](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/str2et_c.html)
 """
 function str2et(ks::KernelSet, s::AbstractString, defs::TimeDefaults = TimeDefaults())::Float64
-    _chkfstr("str2et", "time string", s)
+    _chkfstr("str2et", "time string", s)       # CHKFSTR of str2et_c
+    return _str2et(ks, s, defs)
+end
+
+# `str2et_` without the check of `str2et_c`. The readers of kernel variables call it, as
+# SPICELIB calls `str2et_`: there an empty string is a blank one, which does not parse.
+function _str2et(ks::KernelSet, s::AbstractString, defs::TimeDefaults = TimeDefaults())::Float64
     l = _lsk(ks)
     dhoff, dmoff, _ = defs.zone == "" ? (0.0, 0.0, true) : _zone_offsets(defs.zone)
     p = _tpartv(s, 16, false)
