@@ -22,6 +22,6 @@ sce2c	0	1	0	documented	TOOMANYPARTITIONS past 9999 partitions of an SCLK kernel:
 spkopn	0	1	0	documented	DAFFTFULL past 5000 open files: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 swpool	0	4	0	documented	KERVARSETOVERFLOW, TOOMANYWATCHES, AGENTLISTOVERFLOW past the sizes of the watcher tables: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
 sxform	0	1	0	documented	errors: TOOMANYBASEFRAMES past 15000 base frames of switch frames, a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
-tisbod	134	0	0	documented	CSPICE divides the rate of the cubic term of a phase angle by the square of the seconds per century, so its rate block misses that term (cspice_defects.md); Almanac gives the exact derivative
+tisbod	134	0	0	documented	CSPICE divides the rate of the cubic term of a phase angle by the square of the seconds per century, so its rate block misses that term (cspice_defects.md); Almanac gives the exact derivative; the `near` calls of tisbod have the same cause
 tkvrsn	400	0	0	documented	the version string names Almanac (tkvrsn docstring)
 zzdsklsf	0	1	0	documented	FTFULL past 5000 open files: a CSPICE table limit that Almanac does not have (cspice_defects.md, Limits)
