@@ -538,7 +538,8 @@ $sec"""
 
 """
 Frames of the kernel of `error_kernel`, as `(name, error kind)`; `:none` for a frame
-that is valid. The kind is the short message of CSPICE in lower case.
+that is valid. The kind is the short message of CSPICE in lower case, for a rotation;
+`STATE_KINDS` gives the kind of a state transformation where it differs.
 """
 const ERROR_FRAMES = [
     ("DT_DEEP", :recursiontoodeep), ("DT_DEEP_BASE", :none), ("DT_PARALLEL", :degeneratecase),
@@ -547,7 +548,16 @@ const ERROR_FRAMES = [
     ("DT_BADBODY", :notranslation), ("DT_BADABCORR", :spkinvalidoption), ("DT_BADVECDEF", :notsupported),
     ("DT_NOBASE", :kernelvarnotfound), ("DT_SWITCH_GAP", :noframeconnect),
     ("DT_SWITCH_COUNT", :countmismatch), ("DT_BADUNITS", :unitsnotrec),
+    ("DT_LONGABCORR", :spkinvalidoption), ("DT_BADVELCORR", :invalidoption),
+    ("DT_CONST_BADCORR", :invalidoption), ("DT_CONST_RL", :spkinvalidoption), ("DT_CONST_RL_J2000", :none),
 ]
+
+"""
+The frames of `ERROR_FRAMES` whose state transformation throws an error of another kind
+than their rotation: CSPICE checks the correction of a position vector with `zzspkpa0_`
+in a rotation and with `zzvalcor_` in a state transformation.
+"""
+const STATE_KINDS = Dict("DT_BADABCORR" => :invalidoption, "DT_LONGABCORR" => :invalidoption)
 
 """
     error_kernel() -> String
@@ -676,6 +686,33 @@ function error_kernel()
                FRAME_1850115_ANGLE_3_COEFFS = ( 1.1 )
         """
     )
+    # CSPICE holds a correction in five characters: 'LT + S' is read as 'LT + '.
+    print(
+        io, head("DT_LONGABCORR", 1850116, 5), replace(
+            twovec(1850116, velsec(1850116, "J2000")),
+            "PRI_ABCORR = 'NONE'" => "PRI_ABCORR = 'LT + S'"
+        )
+    )
+    print(
+        io, head("DT_BADVELCORR", 1850117, 5), replace(
+            twovec(1850117, velsec(1850117, "J2000")),
+            "SEC_ABCORR = 'NONE'" => "SEC_ABCORR = 'S'"
+        )
+    )
+    constsec(id, frame, ab) = """
+           FRAME_$(id)_SEC_AXIS = 'Z'
+           FRAME_$(id)_SEC_VECTOR_DEF = 'CONSTANT'
+           FRAME_$(id)_SEC_FRAME = '$frame'
+           FRAME_$(id)_SEC_SPEC = 'RECTANGULAR'
+           FRAME_$(id)_SEC_VECTOR = ( 0, 0, 1 )
+           FRAME_$(id)_SEC_ABCORR = '$ab'
+           FRAME_$(id)_SEC_OBSERVER = 'EARTH'
+    """
+    print(io, head("DT_CONST_BADCORR", 1850118, 5), twovec(1850118, constsec(1850118, "J2000", "ABC")))
+    # A relativistic correction of a constant vector is refused in a frame that is not
+    # inertial, and accepted in an inertial frame, where the light time is not used.
+    print(io, head("DT_CONST_RL", 1850119, 5), twovec(1850119, constsec(1850119, "IAU_EARTH", "RL")))
+    print(io, head("DT_CONST_RL_J2000", 1850120, 5), twovec(1850120, constsec(1850120, "J2000", "RL")))
     println(io, "\n\\begintext")
     write(path, take!(io))
     return PATHS[:err] = path
