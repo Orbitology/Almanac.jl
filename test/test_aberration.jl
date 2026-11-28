@@ -147,6 +147,41 @@ group("9. aberration corrections", Kernels.FULL_SET_FILES...) do
         @test throws_kind(() -> spkezr(ctx, 301, 0.0, "J2000", "RL+S", 399), :invalidoption)
         @test throws_kind(() -> spkpos(ctx, 301, 0.0, "J2000", "RL+S", 399), :spkinvalidoption)
         @test throws_kind(() -> spkder(ctx, 301, 0.0, "J2000", "RL+S", 399, Val(1)), :invalidoption)
+        # Regression: the string forms checked the correction first. CSPICE checks that no
+        # string is empty, then the body names, then, in `spkezr`, the correction;
+        # `spkpos` checks the frame and the SPK data of the observer before the correction,
+        # and the correction before the data of the target.
+        # The error of `spkezr_c` or `spkpos_c`; the exception of SPICE.jl holds the long
+        # message only.
+        function ckind(call, targ, ref, ab, obs)
+            out, lt = zeros(6), Ref(0.0)
+            if call === :spkezr
+                ccall(
+                    (:spkezr_c, SPICE.libcspice), Cvoid,
+                    (Cstring, Cdouble, Cstring, Cstring, Cstring, Ptr{Cdouble}, Ref{Cdouble}),
+                    targ, 0.0, ref, ab, obs, out, lt
+                )
+            else
+                ccall(
+                    (:spkpos_c, SPICE.libcspice), Cvoid,
+                    (Cstring, Cdouble, Cstring, Cstring, Cstring, Ptr{Cdouble}, Ref{Cdouble}),
+                    targ, 0.0, ref, ab, obs, out, lt
+                )
+            end
+            return cspice_kind()
+        end
+        for (call, targ, ref, ab, obs, kind) in (
+                (:spkezr, "", "J2000", "ABC", "EARTH", :emptystring),
+                (:spkezr, "NOBODY", "J2000", "ABC", "EARTH", :idcodenotfound),
+                (:spkpos, "MOON", "J2000", "", "EARTH", :emptystring),
+                (:spkpos, "MOON", "NO_SUCH_FRAME", "ABC", "EARTH", :unknownframe),
+                (:spkpos, "MOON", "J2000", "ABC", "-999", :spkinsuffdata),
+                (:spkpos, "-999", "J2000", "ABC", "EARTH", :spkinvalidoption),
+            )
+            f = getfield(Almanac, call)
+            @test throws_kind(() -> f(ctx, targ, 0.0, ref, ab, obs), kind)
+            @test ckind(call, targ, ref, ab, obs) == kind
+        end
         # CSPICE keeps the first five non-blank characters only, so it reads "XLT+SX"
         # as "XLT+S". Almanac does not truncate: the value is an error.
         @test SPICE.spkezr("301", 0.0, "J2000", "XLT+SX", "399")[2] > 0

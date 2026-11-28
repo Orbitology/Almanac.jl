@@ -594,7 +594,12 @@ function spkezr(
         ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, corr::Aberration,
         obs::NameOrID
     )
-    t, o = body_code(ks, targ), body_code(ks, obs)
+    _spk_chkfstr("spkezr", targ, ref, corr, obs)
+    return _spkezr(ks, body_code(ks, targ), et, ref, corr, body_code(ks, obs))
+end
+
+"`spkezr` with the codes `t`, `o` of the bodies, after the checks of the strings and of the body names, which CSPICE makes first."
+function _spkezr(ks::KernelSet, t::Int32, et::Real, ref::NameOrID, corr::Aberration, o::Int32)
     # As in CSPICE, a geometric state of a body relative to itself is zero before `ref`
     # and `et` are checked.
     corr.geometric && t == o && return zero(SVector{6, typeof(float(et))}), zero(float(et))
@@ -616,7 +621,12 @@ function spkpos(
         ks::KernelSet, targ::NameOrID, et::Real, ref::NameOrID, corr::Aberration,
         obs::NameOrID
     )
-    t, o = body_code(ks, targ), body_code(ks, obs)
+    _spk_chkfstr("spkpos", targ, ref, corr, obs)
+    return _spkpos(ks, body_code(ks, targ), et, ref, corr, body_code(ks, obs))
+end
+
+"`spkpos` with the codes `t`, `o` of the bodies and a valid correction."
+function _spkpos(ks::KernelSet, t::Int32, et::Real, ref::NameOrID, corr::Aberration, o::Int32)
     corr.geometric && t == o && return zero(Vec3{typeof(float(et))}), zero(float(et))
     e, f = check_epoch(et), frame_id(ks, ref)
     if corr.geometric
